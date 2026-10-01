@@ -153,8 +153,9 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 8,
                       children: [
                         _buildHostMeta(Icons.access_time_rounded, '${_exam.durationSeconds ~/ 60} phút'),
                         _buildHostMeta(Icons.quiz_rounded, '${_exam.questions.length} câu'),
