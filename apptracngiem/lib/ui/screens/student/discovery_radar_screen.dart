@@ -233,8 +233,6 @@ class _DiscoveryRadarScreenState extends ConsumerState<DiscoveryRadarScreen> {
                                 children: [
                                   Text(
                                     room.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w700,

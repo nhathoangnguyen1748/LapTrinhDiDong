@@ -336,19 +336,14 @@ class _HomeRoleSelectScreenState extends State<HomeRoleSelectScreen> {
 
                   const SizedBox(height: 12),
 
-                  Row(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
                     children: [
-                      Expanded(
-                        child: _buildFeaturePill(Icons.lock_rounded, 'AES-256 + GZip'),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _buildFeaturePill(Icons.radar_rounded, 'Geofence RSSI'),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _buildFeaturePill(Icons.security_rounded, 'Kiosk Anti-Cheat'),
-                      ),
+                      _buildFeaturePill(Icons.lock_rounded, 'AES-256 + GZip'),
+                      _buildFeaturePill(Icons.radar_rounded, 'Geofence RSSI'),
+                      _buildFeaturePill(Icons.security_rounded, 'Kiosk Anti-Cheat'),
                     ],
                   ),
                 ],
@@ -373,12 +368,9 @@ class _HomeRoleSelectScreenState extends State<HomeRoleSelectScreen> {
         children: [
           Icon(icon, size: 14, color: AppColors.primary),
           const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              label,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
-            ),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
           ),
         ],
       ),

@@ -225,7 +225,6 @@ class ExamResultScreen extends StatelessWidget {
                 child: Text(
                   title,
                   style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -238,7 +237,6 @@ class ExamResultScreen extends StatelessWidget {
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
             ),
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),

@@ -143,8 +143,6 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                               const SizedBox(height: 4),
                               Text(
                                 _exam.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                               ),
                             ],
