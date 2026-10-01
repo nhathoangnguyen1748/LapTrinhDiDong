@@ -98,51 +98,70 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
     final isLowTime = session.remainingSeconds < 300; // Under 5 minutes
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           // Live BLE RSSI Badge
-          RssiBadge(rssi: geofence.rssi, isCompact: false),
-
-          // Timer circular badge
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            decoration: BoxDecoration(
-              gradient: isLowTime ? AppColors.criticalGradient : AppColors.primaryGradient,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: (isLowTime ? AppColors.rssiCritical : AppColors.primary).withOpacity(0.35),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  session.isTimerPaused ? Icons.pause_circle_filled_rounded : Icons.timer_rounded,
-                  color: Colors.white,
-                  size: 16,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  session.isTimerPaused ? 'ĐÃ ĐÓNG BĂNG' : timeStr,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ],
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: RssiBadge(rssi: geofence.rssi, isCompact: true),
             ),
           ),
 
+          const SizedBox(width: 8),
+
+          // Timer circular badge
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.center,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  gradient: isLowTime ? AppColors.criticalGradient : AppColors.primaryGradient,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: (isLowTime ? AppColors.rssiCritical : AppColors.primary).withOpacity(0.35),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      session.isTimerPaused ? Icons.pause_circle_filled_rounded : Icons.timer_rounded,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      session.isTimerPaused ? 'ĐÃ ĐÓNG BĂNG' : timeStr,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 4),
+
           // Question Palette Trigger Button
           IconButton(
-            icon: const Icon(Icons.grid_view_rounded, color: AppColors.textPrimary),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            icon: const Icon(Icons.grid_view_rounded, color: AppColors.textPrimary, size: 28),
             onPressed: () => _showPaletteBottomSheet(context, session),
           ),
         ],
