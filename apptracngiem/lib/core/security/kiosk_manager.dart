@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:screen_protector/screen_protector.dart';
+import 'package:flutter/services.dart';
 import '../constants/ble_constants.dart';
 
 typedef ViolationCallback = void Function(int currentViolations, String reason);
@@ -15,6 +15,8 @@ typedef AutoSubmitCallback = void Function();
 class KioskManager with WidgetsBindingObserver {
   static final KioskManager instance = KioskManager._internal();
   KioskManager._internal();
+
+  static const platform = MethodChannel('com.example.apptracngiem/kiosk');
 
   bool _isKioskActive = false;
   int _violationCount = 0;
@@ -62,25 +64,25 @@ class KioskManager with WidgetsBindingObserver {
     debugPrint('[KioskManager] Đã tắt chế độ Kiosk Mode');
   }
 
-  /// Bật cờ chặn chụp và quay màn hình
+  /// Bật cờ chặn chụp và quay màn hình qua Native MethodChannel
   Future<void> _enableFlagSecure() async {
-    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+    if (!kIsWeb && Platform.isAndroid) {
       try {
-        await ScreenProtector.preventScreenshotOn();
-        debugPrint('[KioskManager] Đã bật chống chụp màn hình');
-      } catch (e) {
+        await platform.invokeMethod('enableSecureMode');
+        debugPrint('[KioskManager] Đã bật chống chụp màn hình qua Native');
+      } on PlatformException catch (e) {
         debugPrint('[KioskManager] Lỗi khi bật chống chụp màn hình: $e');
       }
     }
   }
 
-  /// Tắt cờ chặn chụp và quay màn hình
+  /// Tắt cờ chặn chụp và quay màn hình qua Native MethodChannel
   Future<void> _disableFlagSecure() async {
-    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+    if (!kIsWeb && Platform.isAndroid) {
       try {
-        await ScreenProtector.preventScreenshotOff();
-        debugPrint('[KioskManager] Đã tắt chống chụp màn hình');
-      } catch (e) {
+        await platform.invokeMethod('disableSecureMode');
+        debugPrint('[KioskManager] Đã tắt chống chụp màn hình qua Native');
+      } on PlatformException catch (e) {
         debugPrint('[KioskManager] Lỗi khi tắt chống chụp màn hình: $e');
       }
     }

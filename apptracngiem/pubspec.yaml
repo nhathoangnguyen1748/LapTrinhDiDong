@@ -55,8 +55,6 @@ dependencies:
 
   # Offline Storage
   shared_preferences: ^2.2.3
-  screen_protector: ^1.5.3
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
