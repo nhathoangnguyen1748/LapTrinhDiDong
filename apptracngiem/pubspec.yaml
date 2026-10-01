@@ -44,8 +44,6 @@ dependencies:
 
   # Device Permissions & Security
   permission_handler: ^11.3.1
-  flutter_windowmanager: ^0.2.0
-
   # Cryptography & Compression
   encrypt: ^5.0.3
   archive: ^3.6.1
@@ -57,6 +55,7 @@ dependencies:
 
   # Offline Storage
   shared_preferences: ^2.2.3
+  screen_protector: ^1.5.3
 
 dev_dependencies:
   flutter_test:

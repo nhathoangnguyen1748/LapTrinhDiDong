@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_windowmanager/flutter_windowmanager.dart';
+import 'package:screen_protector/screen_protector.dart';
 import '../constants/ble_constants.dart';
 
 typedef ViolationCallback = void Function(int currentViolations, String reason);
@@ -42,7 +42,7 @@ class KioskManager with WidgetsBindingObserver {
     // Đăng ký lắng nghe sự kiện vòng đời ứng dụng
     WidgetsBinding.instance.addObserver(this);
     
-    // Bật cờ FLAG_SECURE (chỉ áp dụng trên Android)
+    // Bật cờ chặn chụp màn hình
     await _enableFlagSecure();
     debugPrint('[KioskManager] Đã kích hoạt chế độ Kiosk Mode');
   }
@@ -54,7 +54,7 @@ class KioskManager with WidgetsBindingObserver {
     // Hủy đăng ký lắng nghe
     WidgetsBinding.instance.removeObserver(this);
     
-    // Tắt cờ FLAG_SECURE
+    // Tắt cờ chặn chụp màn hình
     await _disableFlagSecure();
     
     onViolation = null;
@@ -64,24 +64,24 @@ class KioskManager with WidgetsBindingObserver {
 
   /// Bật cờ chặn chụp và quay màn hình
   Future<void> _enableFlagSecure() async {
-    if (!kIsWeb && Platform.isAndroid) {
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
       try {
-        await FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_SECURE);
-        debugPrint('[KioskManager] Đã bật FLAG_SECURE');
+        await ScreenProtector.preventScreenshotOn();
+        debugPrint('[KioskManager] Đã bật chống chụp màn hình');
       } catch (e) {
-        debugPrint('[KioskManager] Lỗi khi bật FLAG_SECURE: $e');
+        debugPrint('[KioskManager] Lỗi khi bật chống chụp màn hình: $e');
       }
     }
   }
 
   /// Tắt cờ chặn chụp và quay màn hình
   Future<void> _disableFlagSecure() async {
-    if (!kIsWeb && Platform.isAndroid) {
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
       try {
-        await FlutterWindowManager.clearFlags(FlutterWindowManager.FLAG_SECURE);
-        debugPrint('[KioskManager] Đã tắt FLAG_SECURE');
+        await ScreenProtector.preventScreenshotOff();
+        debugPrint('[KioskManager] Đã tắt chống chụp màn hình');
       } catch (e) {
-        debugPrint('[KioskManager] Lỗi khi tắt FLAG_SECURE: $e');
+        debugPrint('[KioskManager] Lỗi khi tắt chống chụp màn hình: $e');
       }
     }
   }
