@@ -37,7 +37,10 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => ExamResultScreen(submission: next.submission!),
+            builder: (_) => ExamResultScreen(
+              submission: next.submission!,
+              exam: widget.exam,
+            ),
           ),
         );
       }

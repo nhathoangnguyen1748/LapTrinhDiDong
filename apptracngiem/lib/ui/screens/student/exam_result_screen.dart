@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../models/exam_model.dart';
 import '../../../models/submission_model.dart';
 import '../../common/glass_card.dart';
 import '../../common/neumorphic_button.dart';
+import 'exam_review_screen.dart';
 
 class ExamResultScreen extends StatelessWidget {
   final SubmissionModel submission;
+  final ExamModel? exam;
 
-  const ExamResultScreen({super.key, required this.submission});
+  const ExamResultScreen({
+    super.key,
+    required this.submission,
+    this.exam,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -181,9 +188,37 @@ class ExamResultScreen extends StatelessWidget {
 
               const SizedBox(height: 32),
 
+              if (exam != null) ...[
+                NeumorphicButton(
+                  gradient: AppColors.primaryGradient,
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ExamReviewScreen(
+                          exam: exam!,
+                          submission: submission,
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.rate_review_rounded, color: Colors.white, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'XEM LẠI BÀI LÀM CHI TIẾT',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
+
               // Home Button
               NeumorphicButton(
-                gradient: AppColors.primaryGradient,
                 onPressed: () {
                   Navigator.popUntil(context, (route) => route.isFirst);
                 },
