@@ -58,6 +58,10 @@ dependencies:
 
   # Networking & Cloud Sync
   http: ^1.2.0
+
+dependency_overrides:
+  path_provider_android: 2.2.15
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
