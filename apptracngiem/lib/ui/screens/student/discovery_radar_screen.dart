@@ -79,12 +79,17 @@ class _DiscoveryRadarScreenState extends ConsumerState<DiscoveryRadarScreen> {
   @override
   Widget build(BuildContext context) {
     final roomsAsync = ref.watch(discoveredRoomsProvider);
+    final mediaQuery = MediaQuery.of(context);
+    final isKeyboardOpen = mediaQuery.viewInsets.bottom > 0;
+    final screenHeight = mediaQuery.size.height;
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: const Text('Tìm Phòng Thi BLE'),
         actions: [
           IconButton(
+            tooltip: _isScanning ? 'Dừng quét' : 'Quét lại',
             icon: Icon(_isScanning ? Icons.sync_rounded : Icons.refresh_rounded),
             onPressed: () {
               if (_isScanning) {
@@ -97,246 +102,290 @@ class _DiscoveryRadarScreenState extends ConsumerState<DiscoveryRadarScreen> {
         ],
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            // Student identity inputs (Họ tên, SBD, Lớp, PIN)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-              child: GlassCard(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                child: Column(
-                  children: [
-                    Row(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Adaptive radar sizing depending on screen height & keyboard presence
+            final showBigRadar = !isKeyboardOpen && screenHeight >= 640;
+            final radarSize = (screenHeight * 0.20).clamp(110.0, 160.0);
+
+            return Column(
+              children: [
+                // 1. Thẻ thông tin thí sinh (Tối ưu Padding & Font chống tràn màn hình)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  child: GlassCard(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Expanded(
-                          flex: 3,
-                          child: TextField(
-                            controller: _nameController,
-                            style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
-                            decoration: const InputDecoration(
-                              labelText: 'Họ và tên thí sinh',
-                              labelStyle: TextStyle(fontSize: 11, color: AppColors.textMuted),
-                              border: InputBorder.none,
-                              isDense: true,
+                        Row(
+                          children: [
+                            const Icon(Icons.person_outline_rounded, size: 18, color: AppColors.primary),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              flex: 3,
+                              child: TextField(
+                                controller: _nameController,
+                                style: const TextStyle(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                                decoration: const InputDecoration(
+                                  labelText: 'Họ và tên thí sinh',
+                                  labelStyle: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                              ),
                             ),
-                          ),
+                            Container(width: 1, height: 24, color: AppColors.glassBorder),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              flex: 2,
+                              child: TextField(
+                                controller: _studentIdController,
+                                style: const TextStyle(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                                decoration: const InputDecoration(
+                                  labelText: 'SBD / MSSV',
+                                  labelStyle: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        Container(width: 1, height: 26, color: AppColors.glassBorder),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          flex: 2,
-                          child: TextField(
-                            controller: _studentIdController,
-                            style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
-                            decoration: const InputDecoration(
-                              labelText: 'SBD / MSSV',
-                              labelStyle: TextStyle(fontSize: 11, color: AppColors.textMuted),
-                              border: InputBorder.none,
-                              isDense: true,
+                        Divider(color: AppColors.glassBorder.withOpacity(0.5), height: 10),
+                        Row(
+                          children: [
+                            const Icon(Icons.class_outlined, size: 18, color: AppColors.secondary),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              flex: 3,
+                              child: TextField(
+                                controller: _classController,
+                                style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
+                                decoration: const InputDecoration(
+                                  labelText: 'Lớp học (VD: CNTT-K18A)',
+                                  labelStyle: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                              ),
                             ),
-                          ),
+                            Container(width: 1, height: 24, color: AppColors.glassBorder),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              flex: 2,
+                              child: TextField(
+                                controller: _pinController,
+                                keyboardType: TextInputType.number,
+                                style: const TextStyle(fontSize: 13, color: AppColors.secondary, fontWeight: FontWeight.bold),
+                                decoration: const InputDecoration(
+                                  labelText: 'Mã PIN phòng',
+                                  labelStyle: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
-                    ),
-                    Divider(color: AppColors.glassBorder.withOpacity(0.5), height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: TextField(
-                            controller: _classController,
-                            style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
-                            decoration: const InputDecoration(
-                              labelText: 'Lớp học (VD: CNTT-K18A)',
-                              labelStyle: TextStyle(fontSize: 11, color: AppColors.textMuted),
-                              border: InputBorder.none,
-                              isDense: true,
-                            ),
-                          ),
-                        ),
-                        Container(width: 1, height: 26, color: AppColors.glassBorder),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          flex: 2,
-                          child: TextField(
-                            controller: _pinController,
-                            keyboardType: TextInputType.number,
-                            style: const TextStyle(fontSize: 13, color: AppColors.secondary, fontWeight: FontWeight.bold),
-                            decoration: const InputDecoration(
-                              labelText: 'Mã PIN phòng',
-                              labelStyle: TextStyle(fontSize: 11, color: AppColors.textMuted),
-                              border: InputBorder.none,
-                              isDense: true,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // Animated BLE Radar (Thu nhỏ hoặc ẩn khi bàn phím xuất hiện chống tràn màn hình)
-            if (MediaQuery.of(context).viewInsets.bottom == 0)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: RadarPulseWidget(
-                  size: MediaQuery.of(context).size.height < 650 ? 140 : 180,
-                  isScanning: _isScanning,
-                ),
-              ),
-
-            // Scan status title
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _isScanning ? 'Đang quét sóng phòng thi...' : 'Đã dừng quét',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary,
                     ),
                   ),
-                  if (widget.useSimulator)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Text(
-                        'SIMULATOR',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary),
-                      ),
+                ),
+
+                // 2. Animated Radar (Tự động co giãn mượt mà)
+                if (showBigRadar)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: RadarPulseWidget(
+                      size: radarSize,
+                      isScanning: _isScanning,
                     ),
-                ],
-              ),
-            ),
+                  ),
 
-            const SizedBox(height: 12),
-
-            // Discovered Rooms List
-            Expanded(
-              child: roomsAsync.when(
-                data: (rooms) {
-                  if (rooms.isEmpty) {
-                    return Center(
-                      child: Column(
+                // 3. Scan status bar (Luôn co giãn và không bao giờ tràn mép)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            Icons.wifi_find_rounded,
-                            size: 48,
-                            color: AppColors.textMuted.withOpacity(0.5),
-                          ),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'Chưa phát hiện phòng thi BLE nào lân cận',
-                            style: TextStyle(color: AppColors.textMuted, fontSize: 13),
-                          ),
-                          const SizedBox(height: 6),
-                          const Text(
-                            'Đảm bảo máy Giám thị đã bật phát sóng đề thi',
-                            style: TextStyle(color: AppColors.textMuted, fontSize: 11),
+                          if (_isScanning)
+                            Container(
+                              width: 8,
+                              height: 8,
+                              margin: const EdgeInsets.only(right: 8),
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: AppColors.secondary,
+                              ),
+                            ).animate(onPlay: (c) => c.repeat(reverse: true)).scale(
+                                  begin: const Offset(0.6, 0.6),
+                                  end: const Offset(1.3, 1.3),
+                                  duration: 800.ms,
+                                ),
+                          Text(
+                            _isScanning ? 'Đang quét sóng phòng thi BLE...' : 'Đã dừng quét sóng',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textSecondary,
+                            ),
                           ),
                         ],
                       ),
-                    );
-                  }
+                      if (widget.useSimulator)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                          ),
+                          child: const Text(
+                            'SIMULATOR',
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
 
-                  return ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                    itemCount: rooms.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final room = rooms[index];
-                      final distance = BleRssiHelper.estimateDistance(room.rssi);
+                const SizedBox(height: 4),
 
-                      return GlassCard(
-                        onTap: () => _onJoinRoom(room),
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 46,
-                              height: 46,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: AppColors.primary.withOpacity(0.12),
-                                border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-                              ),
-                              child: const Icon(
-                                Icons.sensors_rounded,
-                                color: AppColors.primary,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
+                // 4. Danh sách phòng thi phát hiện được (Scrollable & Responsive)
+                Expanded(
+                  child: roomsAsync.when(
+                    data: (rooms) {
+                      if (rooms.isEmpty) {
+                        return Center(
+                          child: SingleChildScrollView(
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text(
-                                    room.name,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.textPrimary,
-                                    ),
+                                  Icon(
+                                    Icons.wifi_find_rounded,
+                                    size: 42,
+                                    color: AppColors.textMuted.withOpacity(0.5),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    'Chưa phát hiện phòng thi BLE nào lân cận',
+                                    style: TextStyle(color: AppColors.textMuted, fontSize: 13, fontWeight: FontWeight.w600),
                                   ),
                                   const SizedBox(height: 4),
-                                  Text(
-                                    'Khoảng cách ước tính: ~${distance}m',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: AppColors.textMuted,
-                                    ),
+                                  const Text(
+                                    'Đảm bảo máy Giám thị đã bấm "PHÁT SÓNG ĐỀ THI"',
+                                    style: TextStyle(color: AppColors.textMuted, fontSize: 11),
                                   ),
                                 ],
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
+                          ),
+                        );
+                      }
+
+                      return ListView.separated(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                        itemCount: rooms.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (context, index) {
+                          final room = rooms[index];
+                          final distance = BleRssiHelper.estimateDistance(room.rssi);
+
+                          return GlassCard(
+                            onTap: () => _onJoinRoom(room),
+                            padding: const EdgeInsets.all(12),
+                            child: Row(
                               children: [
-                                RssiBadge(rssi: room.rssi, isCompact: true),
-                                const SizedBox(height: 6),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  width: 42,
+                                  height: 42,
                                   decoration: BoxDecoration(
-                                    gradient: AppColors.primaryGradient,
-                                    borderRadius: BorderRadius.circular(12),
+                                    shape: BoxShape.circle,
+                                    color: AppColors.primary.withOpacity(0.12),
+                                    border: Border.all(color: AppColors.primary.withOpacity(0.3)),
                                   ),
-                                  child: const Text(
-                                    'Vào thi',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
+                                  child: const Icon(
+                                    Icons.sensors_rounded,
+                                    color: AppColors.primary,
+                                    size: 22,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        room.name,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        'Khoảng cách: ~${distance}m',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: AppColors.textMuted,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    RssiBadge(rssi: room.rssi, isCompact: true),
+                                    const SizedBox(height: 5),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        gradient: AppColors.primaryGradient,
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: const Text(
+                                        'Vào thi',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      ),
                                     ),
-                                  ),
+                                  ],
                                 ),
                               ],
                             ),
-                          ],
-                        ),
-                      ).animate().fadeIn(delay: (index * 100).ms).slideY(begin: 0.1);
+                          ).animate().fadeIn(delay: (index * 80).ms).slideY(begin: 0.08);
+                        },
+                      );
                     },
-                  );
-                },
-                loading: () => const Center(
-                  child: CircularProgressIndicator(color: AppColors.primary),
+                    loading: () => const Center(
+                      child: CircularProgressIndicator(color: AppColors.primary),
+                    ),
+                    error: (e, _) => Center(
+                      child: Text('Lỗi quét BLE: $e', style: const TextStyle(color: AppColors.rssiCritical)),
+                    ),
+                  ),
                 ),
-                error: (e, _) => Center(
-                  child: Text('Lỗi quét BLE: $e', style: const TextStyle(color: AppColors.rssiCritical)),
-                ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         ),
       ),
     );

@@ -420,29 +420,32 @@ class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
                     ? AppColors.criticalGradient
                     : (_downloadedExam != null ? AppColors.emeraldGradient : null),
                 isLoading: _isConnecting || (currentProgress > 0 && currentProgress < 1.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      _isPinError
-                          ? Icons.arrow_back_rounded
-                          : (_downloadedExam != null ? Icons.play_arrow_rounded : Icons.downloading_rounded),
-                      color: Colors.white,
-                      size: 22,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      _isPinError
-                          ? 'QUAY LẠI NHẬP LẠI PIN'
-                          : (_downloadedExam != null ? 'BẮT ĐẦU LÀM BÀI' : 'ĐANG TẢI ĐỀ THI...'),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _isPinError
+                            ? Icons.arrow_back_rounded
+                            : (_downloadedExam != null ? Icons.play_arrow_rounded : Icons.downloading_rounded),
                         color: Colors.white,
-                        letterSpacing: 0.3,
+                        size: 22,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      Text(
+                        _isPinError
+                            ? 'QUAY LẠI NHẬP LẠI PIN'
+                            : (_downloadedExam != null ? 'BẮT ĐẦU LÀM BÀI' : 'ĐANG TẢI ĐỀ THI...'),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],

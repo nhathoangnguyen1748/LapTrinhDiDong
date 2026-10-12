@@ -440,14 +440,18 @@ class _TeacherCreateExamScreenState extends State<TeacherCreateExamScreen> {
               const SizedBox(height: 18),
 
               // Questions List Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   Text(
                     'Ngân hàng câu hỏi (${_questions.length})',
                     style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                   ),
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       OutlinedButton.icon(
                         icon: const Icon(Icons.file_upload_rounded, size: 16),
@@ -456,13 +460,17 @@ class _TeacherCreateExamScreenState extends State<TeacherCreateExamScreen> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.primary,
                           side: const BorderSide(color: AppColors.primary),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         ),
                       ),
                       const SizedBox(width: 8),
                       ElevatedButton.icon(
                         icon: const Icon(Icons.add_rounded, size: 18, color: Colors.white),
                         label: const Text('Thêm câu', style: TextStyle(fontSize: 12, color: Colors.white)),
-                        style: ElevatedButton.styleFrom(backgroundColor: AppColors.secondary),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.secondary,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        ),
                         onPressed: () => _showAddQuestionDialog(),
                       ),
                     ],
@@ -544,16 +552,19 @@ class _TeacherCreateExamScreenState extends State<TeacherCreateExamScreen> {
                 gradient: AppColors.emeraldGradient,
                 isLoading: _isLoading,
                 onPressed: _handleSaveExam,
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.save_rounded, color: Colors.white, size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      'LƯU ĐỀ THI & SẴN SÀNG PHÁT BLE',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14),
-                    ),
-                  ],
+                child: const FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.save_rounded, color: Colors.white, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'LƯU ĐỀ THI & SẴN SÀNG PHÁT BLE',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],

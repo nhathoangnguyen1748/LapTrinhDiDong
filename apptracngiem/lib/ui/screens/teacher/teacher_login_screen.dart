@@ -91,30 +91,32 @@ class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
             Text('Cấu hình Backend API', style: TextStyle(fontSize: 16)),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Địa chỉ máy chủ FastAPI (Local LAN hoặc Cloud):',
-              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: urlController,
-              style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
-              decoration: const InputDecoration(
-                hintText: 'http://192.168.1.15:8000/api/v1',
-                border: OutlineInputBorder(),
-                isDense: true,
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Địa chỉ máy chủ FastAPI (Local LAN hoặc Cloud):',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
               ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Gợi ý:\n• Máy ảo Android: http://10.0.2.2:8000/api/v1\n• Máy thật cùng Wi-Fi: http://<IP_MAY_TINH>:8000/api/v1\n• Desktop Windows: http://localhost:8000/api/v1',
-              style: TextStyle(fontSize: 11, color: AppColors.textMuted, height: 1.4),
-            ),
-          ],
+              const SizedBox(height: 10),
+              TextField(
+                controller: urlController,
+                style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
+                decoration: const InputDecoration(
+                  hintText: 'http://192.168.1.15:8000/api/v1',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Gợi ý:\n• Máy ảo Android: http://10.0.2.2:8000/api/v1\n• Máy thật cùng Wi-Fi: http://<IP_MAY_TINH>:8000/api/v1\n• Desktop Windows: http://localhost:8000/api/v1',
+                style: TextStyle(fontSize: 11, color: AppColors.textMuted, height: 1.4),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(

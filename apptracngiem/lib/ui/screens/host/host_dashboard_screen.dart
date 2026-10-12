@@ -448,16 +448,19 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen>
                             gradient: _isAdvertising ? AppColors.criticalGradient : AppColors.emeraldGradient,
                             isLoading: _isLoading,
                             onPressed: _toggleAdvertising,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(_isAdvertising ? Icons.stop_rounded : Icons.play_arrow_rounded, color: Colors.white, size: 20),
-                                const SizedBox(width: 6),
-                                Text(
-                                  _isAdvertising ? 'DỪNG PHÁT BLE' : 'PHÁT SÓNG ĐỀ THI',
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                                ),
-                              ],
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(_isAdvertising ? Icons.stop_rounded : Icons.play_arrow_rounded, color: Colors.white, size: 20),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    _isAdvertising ? 'DỪNG PHÁT BLE' : 'PHÁT SÓNG ĐỀ THI',
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -466,14 +469,17 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen>
                           Expanded(
                             child: ElevatedButton.icon(
                               icon: Icon(_isExamStarted ? Icons.check_circle_rounded : Icons.campaign_rounded, size: 18),
-                              label: Text(
-                                _isExamStarted ? 'ĐANG THI' : 'PHÁT LỆNH THI',
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                              label: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  _isExamStarted ? 'ĐANG THI' : 'PHÁT LỆNH THI',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                ),
                               ),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: _isExamStarted ? AppColors.primary : AppColors.rssiWarning,
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
                               onPressed: _isExamStarted ? null : _handleBroadcastStartExam,
@@ -824,7 +830,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen>
 
   Widget _buildRosterStatCard(String label, String value, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
       decoration: BoxDecoration(
         color: AppColors.surfaceCard,
         borderRadius: BorderRadius.circular(10),
@@ -832,9 +838,15 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen>
       ),
       child: Column(
         children: [
-          Text(label, style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(label, style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
+          ),
           const SizedBox(height: 2),
-          Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+          ),
         ],
       ),
     );

@@ -36,8 +36,8 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
       ref.read(examSessionProvider.notifier).setTimerPaused(next.isOutOfBounds);
     });
 
-    // Auto-navigate to result screen when submitted
-    ref.listen<ExamSessionState>(examSessionProvider, (_, next) {
+    // Auto-navigate to result screen when submitted or show violation popup
+    ref.listen<ExamSessionState>(examSessionProvider, (prev, next) {
       if (next.isSubmitted && next.submission != null) {
         Navigator.pushReplacement(
           context,
@@ -48,6 +48,8 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
             ),
           ),
         );
+      } else if (prev != null && next.violationCount > prev.violationCount && next.violationCount < 3) {
+        _showViolationWarningDialog(context, next.violationCount, next.lastViolationReason);
       }
     });
 
@@ -65,6 +67,9 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
       child: Scaffold(
         body: Stack(
           children: [
+            // 1. Dynamic Anti-Cheat Watermark in background (Chống chụp lén bằng camera khác)
+            _buildAntiCheatWatermark(examSession),
+
             SafeArea(
               child: Column(
                 children: [
@@ -99,6 +104,47 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
     );
   }
 
+  /// Watermark chìm chống gian lận in danh tính thí sinh lên toàn bộ đề thi
+  Widget _buildAntiCheatWatermark(ExamSessionState session) {
+    final watermarkText = '${session.studentId} • ${session.studentName} • ${widget.classroom}';
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Opacity(
+          opacity: 0.038,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return Transform.rotate(
+                angle: -0.32,
+                child: SizedBox(
+                  width: constraints.maxWidth * 1.5,
+                  height: constraints.maxHeight * 1.5,
+                  child: Center(
+                    child: Wrap(
+                      spacing: 36,
+                      runSpacing: 48,
+                      children: List.generate(
+                        16,
+                        (_) => Text(
+                          watermarkText,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildHeader(BuildContext context, ExamSessionState session, GeofenceState geofence) {
     final minutes = session.remainingSeconds ~/ 60;
     final seconds = session.remainingSeconds % 60;
@@ -106,58 +152,63 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
     final isLowTime = session.remainingSeconds < 300; // Under 5 minutes
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           // Live BLE RSSI Badge
-          Flexible(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
+          Expanded(
+            flex: 4,
+            child: Align(
               alignment: Alignment.centerLeft,
-              child: RssiBadge(rssi: geofence.rssi, isCompact: true),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: RssiBadge(rssi: geofence.rssi, isCompact: true),
+              ),
             ),
           ),
 
           const SizedBox(width: 8),
 
           // Timer circular badge
-          Flexible(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
+          Expanded(
+            flex: 5,
+            child: Align(
               alignment: Alignment.center,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                decoration: BoxDecoration(
-                  gradient: isLowTime ? AppColors.criticalGradient : AppColors.primaryGradient,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: (isLowTime ? AppColors.rssiCritical : AppColors.primary).withOpacity(0.35),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      session.isTimerPaused ? Icons.pause_circle_filled_rounded : Icons.timer_rounded,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      session.isTimerPaused ? 'ĐÃ ĐÓNG BĂNG' : timeStr,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: 0.5,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    gradient: isLowTime ? AppColors.criticalGradient : AppColors.primaryGradient,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (isLowTime ? AppColors.rssiCritical : AppColors.primary).withOpacity(0.35),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        session.isTimerPaused ? Icons.pause_circle_filled_rounded : Icons.timer_rounded,
+                        color: Colors.white,
+                        size: 15,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        session.isTimerPaused ? 'ĐÃ ĐÓNG BĂNG' : timeStr,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -168,8 +219,8 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
           // Question Palette Trigger Button
           IconButton(
             padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            icon: const Icon(Icons.grid_view_rounded, color: AppColors.textPrimary, size: 28),
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            icon: const Icon(Icons.grid_view_rounded, color: AppColors.textPrimary, size: 26),
             onPressed: () => _showPaletteBottomSheet(context, session),
           ),
         ],
@@ -179,7 +230,7 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
 
   Widget _buildViolationBanner(ExamSessionState session) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: AppColors.rssiCritical.withOpacity(0.15),
@@ -204,9 +255,9 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
   Widget _buildQuestionPalette(ExamSessionState session, int totalQuestions) {
     return Container(
       height: 44,
-      margin: const EdgeInsets.symmetric(vertical: 8),
+      margin: const EdgeInsets.symmetric(vertical: 6),
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
         itemCount: totalQuestions,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
@@ -280,13 +331,13 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
 
   Widget _buildQuestionContent(QuestionModel question, String? selectedOption, bool isFlagged) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Question card
           GlassCard(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(18),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -323,21 +374,21 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
                       ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 Text(
                   question.content,
                   style: const TextStyle(
-                    fontSize: 16,
+                    fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary,
-                    height: 1.5,
+                    height: 1.45,
                   ),
                 ),
               ],
             ),
           ).animate(key: ValueKey(question.id)).fadeIn(duration: 250.ms).slideY(begin: 0.05),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
           // Options List (A, B, C, D)
           ...question.options.map((opt) {
@@ -355,12 +406,12 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
                 borderColor: isSelected
                     ? AppColors.primary
                     : AppColors.glassBorder,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 child: Row(
                   children: [
                     Container(
-                      width: 32,
-                      height: 32,
+                      width: 30,
+                      height: 30,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
@@ -378,12 +429,12 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 14),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         opt.text,
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 13,
                           fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                           color: isSelected ? AppColors.textPrimary : AppColors.textSecondary,
                         ),
@@ -414,63 +465,75 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
     final isFlagged = currentQuestion != null && session.flaggedQuestions.contains(currentQuestion.id);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
         color: AppColors.backgroundSecondary,
         border: Border(top: BorderSide(color: AppColors.glassBorder)),
       ),
-      child: Row(
-        children: [
-          // Previous button
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-            onPressed: isFirst ? null : () => ref.read(examSessionProvider.notifier).previousQuestion(),
-            color: isFirst ? AppColors.textMuted.withOpacity(0.3) : AppColors.textPrimary,
-          ),
-
-          // Bookmark / Flag button
-          IconButton(
-            icon: Icon(
-              isFlagged ? Icons.flag_rounded : Icons.outlined_flag_rounded,
-              color: isFlagged ? AppColors.rssiWarning : AppColors.textMuted,
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            // Previous button
+            IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+              onPressed: isFirst ? null : () => ref.read(examSessionProvider.notifier).previousQuestion(),
+              color: isFirst ? AppColors.textMuted.withOpacity(0.3) : AppColors.textPrimary,
             ),
-            onPressed: currentQuestion != null
-                ? () => ref.read(examSessionProvider.notifier).toggleFlag(currentQuestion.id)
-                : null,
-          ),
 
-          const Spacer(),
-
-          // Next or Submit Button
-          if (!isLast)
-            NeumorphicButton(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              onPressed: () => ref.read(examSessionProvider.notifier).nextQuestion(),
-              child: const Row(
-                children: [
-                  Text('Câu tiếp theo', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                  SizedBox(width: 6),
-                  Icon(Icons.arrow_forward_ios_rounded, size: 14),
-                ],
+            // Bookmark / Flag button
+            IconButton(
+              icon: Icon(
+                isFlagged ? Icons.flag_rounded : Icons.outlined_flag_rounded,
+                color: isFlagged ? AppColors.rssiWarning : AppColors.textMuted,
               ),
-            )
-          else
-            NeumorphicButton(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              gradient: AppColors.emeraldGradient,
-              onPressed: () => _showSubmitConfirmation(context, session, totalQuestions),
-              child: const Row(
-                children: [
-                  Icon(Icons.check_rounded, color: Colors.white, size: 18),
-                  SizedBox(width: 6),
-                  Text(
-                    'NỘP BÀI THI',
-                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Colors.white),
-                  ),
-                ],
+              onPressed: currentQuestion != null
+                  ? () => ref.read(examSessionProvider.notifier).toggleFlag(currentQuestion.id)
+                  : null,
+            ),
+
+            const SizedBox(width: 8),
+
+            // Next or Submit Button (Tự động co giãn mượt mà chống tràn mép)
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: !isLast
+                      ? NeumorphicButton(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          onPressed: () => ref.read(examSessionProvider.notifier).nextQuestion(),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('Câu tiếp theo', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                              SizedBox(width: 6),
+                              Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                            ],
+                          ),
+                        )
+                      : NeumorphicButton(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          gradient: AppColors.emeraldGradient,
+                          onPressed: () => _showSubmitConfirmation(context, session, totalQuestions),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.check_rounded, color: Colors.white, size: 18),
+                              SizedBox(width: 6),
+                              Text(
+                                'NỘP BÀI THI',
+                                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Colors.white),
+                              ),
+                            ],
+                          ),
+                        ),
+                ),
               ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -489,7 +552,7 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
             maxHeight: MediaQuery.of(context).size.height * 0.82,
           ),
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -542,7 +605,7 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 NeumorphicButton(
                   gradient: AppColors.emeraldGradient,
                   onPressed: () {
@@ -559,6 +622,51 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
           ),
         );
       },
+    );
+  }
+
+  void _showViolationWarningDialog(BuildContext context, int count, String? reason) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceDark,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppColors.rssiCritical, size: 28),
+            SizedBox(width: 10),
+            Text('CẢNH BÁO QUY CHẾ', style: TextStyle(color: AppColors.rssiCritical, fontSize: 16)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Hệ thống phát hiện bạn vừa: ${reason ?? "rời khỏi ứng dụng hoặc bật đa nhiệm"}.',
+              style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Số lần vi phạm: $count / 3 lần quy định.',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.rssiWarning),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Lưu ý: Nếu vi phạm lần thứ 3, bài thi sẽ bị TỰ ĐỘNG THU HỒI VÀ KHÓA NGAY LẬP TỨC.',
+              style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.rssiCritical),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Tôi đã hiểu, tiếp tục làm bài', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
     );
   }
 
