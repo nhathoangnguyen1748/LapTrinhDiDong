@@ -1,6 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/exam_model.dart';
@@ -13,10 +11,8 @@ class ApiService {
   static const String _prefBaseUrlKey = 'localquiz_api_base_url';
   static const String _prefTokenKey = 'localquiz_jwt_token';
 
-  // Default IP: 10.0.2.2 for Android emulator, localhost for others
-  String _baseUrl = (!kIsWeb && Platform.isAndroid)
-      ? 'http://10.0.2.2:8000/api/v1'
-      : 'http://localhost:8000/api/v1';
+  // Default to live Render cloud backend
+  String _baseUrl = 'https://localquiz-backend.onrender.com/api/v1';
 
   String? _token;
 
