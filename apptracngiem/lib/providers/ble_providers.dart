@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/ble_central_service.dart';
 import '../services/ble_peripheral_service.dart';
+import '../models/candidate_model.dart';
 import '../models/submission_model.dart';
 
 final discoveredRoomsProvider = StreamProvider.autoDispose<List<DiscoveredExamRoom>>((ref) {
@@ -13,4 +14,8 @@ final downloadProgressProvider = StreamProvider.autoDispose<double>((ref) {
 
 final hostSubmissionsProvider = StreamProvider.autoDispose<List<SubmissionModel>>((ref) {
   return BlePeripheralService.instance.submissionsStream;
+});
+
+final hostCandidatesProvider = StreamProvider.autoDispose<List<CandidateModel>>((ref) {
+  return BlePeripheralService.instance.candidatesStream;
 });

@@ -8,6 +8,7 @@ import '../../models/submission_model.dart';
 /// Sử dụng SharedPreferences kết hợp AES Encryption cho dữ liệu nhạy cảm.
 class LocalExamStorage {
   static const String _keyCachedExam = 'localquiz_cached_exam';
+  static const String _keyDownloadedExamsList = 'localquiz_downloaded_exams_list';
   static const String _keyDraftAnswers = 'localquiz_draft_answers';
   static const String _keyLastSubmission = 'localquiz_last_submission';
 
@@ -18,6 +19,7 @@ class LocalExamStorage {
     final jsonStr = exam.toRawJson();
     final encrypted = AesEncryptionService.encryptString(jsonStr);
     await prefs.setString(_keyCachedExam, encrypted);
+    await saveDownloadedExam(exam);
   }
 
   /// Tải lên đề thi đã lưu tạm và giải mã
@@ -32,6 +34,45 @@ class LocalExamStorage {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Lưu trữ gói đề thi vào kho lưu trữ ngoại tuyến của Giảng viên (Khâu 1)
+  static Future<void> saveDownloadedExam(ExamModel exam) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = 'localquiz_pkg_${exam.examId}';
+    final encrypted = AesEncryptionService.encryptString(exam.toRawJson());
+    await prefs.setString(key, encrypted);
+
+    // Cập nhật danh sách ID các đề đã tải
+    final list = prefs.getStringList(_keyDownloadedExamsList) ?? [];
+    if (!list.contains(exam.examId)) {
+      list.add(exam.examId);
+      await prefs.setStringList(_keyDownloadedExamsList, list);
+    }
+  }
+
+  /// Lấy danh sách toàn bộ đề thi đã tải về máy
+  static Future<List<ExamModel>> getDownloadedExams() async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = prefs.getStringList(_keyDownloadedExamsList) ?? [];
+    final results = <ExamModel>[];
+
+    for (final examId in list) {
+      final encrypted = prefs.getString('localquiz_pkg_$examId');
+      if (encrypted != null) {
+        try {
+          final decrypted = AesEncryptionService.decryptString(encrypted);
+          results.add(ExamModel.fromRawJson(decrypted));
+        } catch (_) {}
+      }
+    }
+    return results;
+  }
+
+  /// Kiểm tra xem đề thi đã được tải về máy chưa
+  static Future<bool> isExamDownloaded(String examId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.containsKey('localquiz_pkg_$examId');
   }
 
   /// Lưu bản nháp bài làm của thí sinh theo thời gian thực (chống mất dữ liệu khi sập nguồn)

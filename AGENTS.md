@@ -1,15 +1,24 @@
-# LocalQuiz BLE - Agent Guidelines & Context
+# LocalQuiz BLE & Cloud Sync - Agent Guidelines & Context
 
 Tài liệu này cung cấp hướng dẫn, kiến trúc kỹ thuật và quy chuẩn phát triển dành cho các AI Coding Agents (Antigravity, Cursor, Claude Code, Windsurf, Copilot,...) khi đọc và làm việc trên codebase này.
 
 ---
 
-## 1. TỔNG QUAN DỰ ÁN & VAI TRÒ HỆ THỐNG
-**LocalQuiz BLE** là ứng dụng di động Flutter tổ chức thi trắc nghiệm ngoại tuyến 100% sử dụng **Bluetooth Low Energy (BLE)** giữa hai vai trò:
-- **Host (Giám thị):** Đóng vai trò GATT Server (Peripheral) phát tín hiệu quảng bá đề thi và tiếp nhận kết quả nộp bài.
-- **Client (Thí sinh):** Đóng vai trò GATT Client (Central) quét tìm phòng thi, tải đề thi mã hóa theo từng chunk, làm bài và nộp bài.
-- **Kiểm soát phạm vi (RSSI Geofencing):** Tự động đóng băng đồng hồ và khóa màn hình làm bài khi tín hiệu suy yếu hoặc thí sinh rời khỏi phòng thi.
-- **Chế độ Kiosk chống gian lận:** Cấm chụp màn hình (`FLAG_SECURE`), phát hiện chuyển app/bật đa nhiệm, tự động nộp bài sau 3 lần vi phạm.
+## 1. TỔNG QUAN HỆ THỐNG: MÔ HÌNH HYBRID ONLINE - OFFLINE - ONLINE
+**LocalQuiz BLE & Cloud Sync** là hệ sinh thái tổ chức thi trắc nghiệm ngoại tuyến kết hợp đồng bộ điện toán đám mây:
+1. **Khâu 1: Trước ca thi (ONLINE - Có mạng):**
+   - Giảng viên đăng nhập tài khoản qua **FastAPI Backend** (`/api/v1/auth/login`).
+   - Tải gói đề thi trọn gói (`/api/v1/exams/{id}/package`) và lưu mã hóa AES-256 cục bộ vào điện thoại.
+   - Thí sinh **không cần tài khoản, không cần Internet**, chỉ mở app sẵn sàng.
+2. **Khâu 2: Trong ca thi (OFFLINE 100% - Không cần Internet):**
+   - Giảng viên tắt mạng (hoặc phòng thi mất sóng), mở **BLE Peripheral (GATT Server)** phát sóng đề thi mã hóa phân mảnh (Chunking MTU 512).
+   - Thí sinh mở app, nhập SBD và Họ tên, đóng vai trò **BLE Central** quét radar tìm phòng thi, nhận đề thi phân mảnh, làm bài thi.
+   - Hệ thống tự động đo **RSSI Geofencing** (ngưỡng -85 dBm đóng băng bài thi) và bật chế độ **Kiosk Anti-Cheat** (`FLAG_SECURE`, cấm thoát app quá 3 lần).
+   - Thí sinh nộp bài ngược về máy Giảng viên qua BLE và nhận gói tin ACK xác nhận.
+3. **Khâu 3: Sau ca thi (ONLINE - Có mạng trở lại):**
+   - Giảng viên bật lại Wi-Fi/4G.
+   - Bấm nút **"ĐỒNG BỘ LÊN CLOUD (Sync to Server)"** trên `HostDashboardScreen`.
+   - Toàn bộ danh sách bài nộp và điểm số được gửi qua RESTful API (`POST /api/v1/exams/{id}/sync-submissions`) lên **FastAPI Backend** để lưu DB, tính điểm TB, xuất file Excel (`.xlsx`).
 
 ---
 
@@ -37,8 +46,6 @@ static const int defaultChunkPayloadSize = 380;
 
 ## 3. GIAO THỨC ĐÓNG GÓI & BẢO MẬT (PACKET CHUNKING PROTOCOL)
 
-Do giới hạn MTU của Bluetooth Low Energy, toàn bộ đề thi được truyền qua giao thức phân mảnh tại `lib/core/security/chunk_protocol.dart`:
-
 1. **Chu trình đóng gói phía Giám thị (Host):**
    `Chuỗi JSON Đề thi` $\rightarrow$ `GZip Compress` $\rightarrow$ `AES-256-CBC Encrypt` $\rightarrow$ `Tính CRC32 trên toàn bộ khối mã hóa` $\rightarrow$ `Chia nhỏ thành các Chunk` kèm Header 8 bytes.
 2. **Cấu trúc Binary Header 8 bytes của mỗi Chunk:**
@@ -51,51 +58,55 @@ Do giới hạn MTU của Bluetooth Low Energy, toàn bộ đề thi được tr
 
 ---
 
-## 4. QUY TRÌNH KIỂM SOÁT RSSI GEOFENCING & KIOSK MODE
+## 4. CẤU TRÚC TOÀN BỘ CODEBASE
 
-- **Chu kỳ Heartbeat:** Gọi `device.readRssi()` mỗi 3 giây trong `lib/services/ble_central_service.dart`.
-- **Cơ chế đóng băng:** `proximity_geofence_provider.dart` kích hoạt `isOutOfBounds = true` khi $\text{RSSI} < -85\text{ dBm}$ hoặc mất sóng $> 10\text{s}$. Lúc này `exam_session_provider.dart` lập tức dừng countdown timer và hiển thị `OutOfBoundsOverlay`.
-- **Kiosk Anti-Cheat:** `lib/core/security/kiosk_manager.dart` đăng ký `WidgetsBindingObserver`. Khi bắt được `AppLifecycleState.paused`/`inactive`, tăng `violationCount`. Khi đạt $\ge 3$ lần, gọi `submitExam(isAutoSubmit: true)` thu bài tự động.
+```
+LapTrinhDiDong/
+├── backend/                                   # FastAPI Backend (Python)
+│   ├── app/
+│   │   ├── config.py                          # Cấu hình Secret Key, DB URL, JWT
+│   │   ├── database.py                        # SQLAlchemy Session & Engine
+│   │   ├── models.py                          # User, Exam, ExamSession, Submission
+│   │   ├── schemas.py                         # Pydantic Schemas
+│   │   ├── security.py                        # JWT Auth & Bcrypt Hashing
+│   │   ├── seed_data.py                       # Dữ liệu mẫu (teacher@localquiz.edu.vn / 123456)
+│   │   ├── main.py                            # FastAPI App & CORS
+│   │   └── routes/
+│   │       ├── auth.py                        # Đăng ký, Đăng nhập Giảng viên
+│   │       └── exams.py                       # Đề thi, Tải package, Sync bài nộp, Báo cáo & Excel
+│   ├── run_server.py                          # Khởi chạy máy chủ backend (Port 8000)
+│   ├── requirements.txt                       # Thư viện Python
+│   └── tests/test_api.py                      # Bộ test tự động FastAPI (7/7 pass)
+└── apptracngiem/                              # Flutter Mobile App
+    ├── lib/
+    │   ├── core/constants/                    # BleConstants, AppColors
+    │   ├── core/security/                     # AES, GZip, Chunk Protocol, Kiosk Manager
+    │   ├── core/storage/                      # LocalExamStorage (Multi-exam caching & Drafts)
+    │   ├── services/                          # ApiService, BleCentral, BlePeripheral, MockBle
+    │   ├── providers/                         # AuthNotifier, GeofenceNotifier, ExamSessionNotifier
+    │   └── ui/screens/
+    │       ├── home_role_select_screen.dart   # Trang chủ phân luồng Thí sinh & Giảng viên
+    │       ├── teacher/                       # TeacherLoginScreen, TeacherExamListScreen
+    │       ├── student/                       # DiscoveryRadar, Download, Taking, Review, Result
+    │       └── host/                          # HostDashboardScreen (Live BLE & Sync to Cloud)
+    └── test/                                  # 23 Automated Flutter Tests (23/23 pass)
+```
 
 ---
 
-## 5. CẤU TRÚC CODEBASE & NƠI CẦN CAN THIỆP
+## 5. LỆNH CHUẨN ĐỂ VERIFY TRƯỚC KHI COMMIT (AGENT RUNBOOK)
 
-```
-apptracngiem/
-├── lib/
-│   ├── core/
-│   │   ├── constants/        # Hằng số BLE & bảng màu AppColors
-│   │   ├── security/         # AES, GZip, Chunk Protocol, Kiosk Manager
-│   │   ├── storage/          # Local Encrypted Draft Cache
-│   │   ├── theme/            # AppTheme, Neumorphic & Glassmorphic styles
-│   │   └── utils/            # RSSI path loss calculations, Permissions
-│   ├── models/               # ExamModel, QuestionModel, SubmissionModel, BlePacketModel
-│   ├── services/             # BleCentralService, BlePeripheralService, MockBleService
-│   ├── providers/            # Riverpod StateNotifiers (Geofence, ExamSession, BLE Streams)
-│   └── ui/                   # Screens (Radar, Download, Taking, Result, Host Dashboard)
-└── test/
-    └── chunk_protocol_test.dart # 11 Unit Tests
-```
-
----
-
-## 6. LỆNH CHUẨN ĐỂ VERIFY TRƯỚC KHI COMMIT (AGENT RUNBOOK)
-
-Mọi thay đổi code của Agent phải thỏa mãn 2 lệnh kiểm tra sau trong thư mục `apptracngiem`:
+Mọi thay đổi code của Agent phải thỏa mãn các lệnh kiểm tra sau:
 
 ```bash
+# 1. Khởi chạy Backend (Terminal 1)
+cd backend
+python run_server.py
+# Chạy bộ test backend:
+python tests/test_api.py
+
+# 2. Kiểm tra tĩnh & Chạy tests Flutter (Terminal 2)
 cd apptracngiem
-
-# 1. Kiểm tra tĩnh: Phải đạt 0 lỗi, 0 cảnh báo
-flutter analyze
-
-# 2. Chạy bộ unit tests tự động: Phải pass 11/11 tests
-flutter test
+flutter analyze   # Phải đạt 0 lỗi, 0 cảnh báo
+flutter test      # Phải pass 23/23 tests
 ```
-
----
-
-## 7. LƯU Ý KHI KIỂM THỬ TRÊN MÁY TÍNH / EMULATOR (MOCK SIMULATOR)
-- Bluetooth Low Energy vật lý trên Android Emulator / PC thường không hỗ trợ đầy đủ vai trò Peripheral/Central đồng thời.
-- Để Agent hoặc người dùng kiểm thử toàn diện giao diện, slider giả lập RSSI và quá trình tải chunk, luôn duy trì và sử dụng `lib/services/mock_ble_service.dart` khi bật toggle "Chế độ Mô phỏng (Simulator)" trên màn hình chính.

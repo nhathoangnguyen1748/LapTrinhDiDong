@@ -17,6 +17,6 @@ void main() {
     // Verify title and main action cards exist
     expect(find.text('LocalQuiz BLE'), findsOneWidget);
     expect(find.text('Vào Thi (Thí Sinh)'), findsOneWidget);
-    expect(find.text('Phát Đề (Giám Thị)'), findsOneWidget);
+    expect(find.text('Khu Vực Giảng Viên'), findsOneWidget);
   });
 }

@@ -46,15 +46,15 @@ class ExamResultScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: AppColors.secondary.withOpacity(0.5)),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.verified_rounded, color: AppColors.secondary, size: 24),
-                    SizedBox(width: 12),
+                    const Icon(Icons.verified_rounded, color: AppColors.secondary, size: 28),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          const Text(
                             'Đã Xác Nhận ACK Thành Công',
                             style: TextStyle(
                               fontSize: 13,
@@ -62,10 +62,10 @@ class ExamResultScreen extends StatelessWidget {
                               color: AppColors.secondary,
                             ),
                           ),
-                          SizedBox(height: 2),
+                          const SizedBox(height: 2),
                           Text(
-                            'Máy chủ Giám thị đã nhận và lưu trữ bài thi an toàn.',
-                            style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                            'Biên lai mã hóa: ${submission.receiptHash ?? "ACK-2026-OK"}\nMáy chủ Giám thị đã nhận và ghi nhận bài nộp an toàn.',
+                            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary, height: 1.3),
                           ),
                         ],
                       ),
@@ -177,8 +177,8 @@ class ExamResultScreen extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _buildStatCard(
-                      title: 'Thí sinh',
-                      value: submission.studentName,
+                      title: 'Thí sinh / Lớp',
+                      value: '${submission.studentName}\n(${submission.classroom ?? "CNTT-K18A"})',
                       icon: Icons.person_rounded,
                       color: AppColors.accentIndigo,
                     ),

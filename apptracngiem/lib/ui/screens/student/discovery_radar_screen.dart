@@ -22,6 +22,8 @@ class DiscoveryRadarScreen extends ConsumerStatefulWidget {
 class _DiscoveryRadarScreenState extends ConsumerState<DiscoveryRadarScreen> {
   final TextEditingController _nameController = TextEditingController(text: 'Nguyễn Văn An');
   final TextEditingController _studentIdController = TextEditingController(text: 'TS-2026-001');
+  final TextEditingController _classController = TextEditingController(text: 'CNTT-K18A');
+  final TextEditingController _pinController = TextEditingController(text: '1234');
   bool _isScanning = false;
 
   @override
@@ -44,6 +46,8 @@ class _DiscoveryRadarScreenState extends ConsumerState<DiscoveryRadarScreen> {
   void dispose() {
     _nameController.dispose();
     _studentIdController.dispose();
+    _classController.dispose();
+    _pinController.dispose();
     BleCentralService.instance.stopScan();
     super.dispose();
   }
@@ -61,6 +65,12 @@ class _DiscoveryRadarScreenState extends ConsumerState<DiscoveryRadarScreen> {
           studentId: _studentIdController.text.trim().isNotEmpty
               ? _studentIdController.text.trim()
               : 'TS-001',
+          classroom: _classController.text.trim().isNotEmpty
+              ? _classController.text.trim()
+              : 'CNTT-K18A',
+          roomPin: _pinController.text.trim().isNotEmpty
+              ? _pinController.text.trim()
+              : '1234',
         ),
       ),
     );
@@ -89,54 +99,93 @@ class _DiscoveryRadarScreenState extends ConsumerState<DiscoveryRadarScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Student identity inputs
+            // Student identity inputs (Họ tên, SBD, Lớp, PIN)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
               child: GlassCard(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Row(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Column(
                   children: [
-                    Expanded(
-                      flex: 3,
-                      child: TextField(
-                        controller: _nameController,
-                        style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
-                        decoration: const InputDecoration(
-                          labelText: 'Họ và tên',
-                          labelStyle: TextStyle(fontSize: 12, color: AppColors.textMuted),
-                          border: InputBorder.none,
-                          isDense: true,
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: TextField(
+                            controller: _nameController,
+                            style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
+                            decoration: const InputDecoration(
+                              labelText: 'Họ và tên thí sinh',
+                              labelStyle: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                              border: InputBorder.none,
+                              isDense: true,
+                            ),
+                          ),
                         ),
-                      ),
+                        Container(width: 1, height: 26, color: AppColors.glassBorder),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          flex: 2,
+                          child: TextField(
+                            controller: _studentIdController,
+                            style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
+                            decoration: const InputDecoration(
+                              labelText: 'SBD / MSSV',
+                              labelStyle: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                              border: InputBorder.none,
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    Container(width: 1, height: 28, color: AppColors.glassBorder),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 2,
-                      child: TextField(
-                        controller: _studentIdController,
-                        style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
-                        decoration: const InputDecoration(
-                          labelText: 'SBD / MSSV',
-                          labelStyle: TextStyle(fontSize: 12, color: AppColors.textMuted),
-                          border: InputBorder.none,
-                          isDense: true,
+                    Divider(color: AppColors.glassBorder.withOpacity(0.5), height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: TextField(
+                            controller: _classController,
+                            style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
+                            decoration: const InputDecoration(
+                              labelText: 'Lớp học (VD: CNTT-K18A)',
+                              labelStyle: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                              border: InputBorder.none,
+                              isDense: true,
+                            ),
+                          ),
                         ),
-                      ),
+                        Container(width: 1, height: 26, color: AppColors.glassBorder),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          flex: 2,
+                          child: TextField(
+                            controller: _pinController,
+                            keyboardType: TextInputType.number,
+                            style: const TextStyle(fontSize: 13, color: AppColors.secondary, fontWeight: FontWeight.bold),
+                            decoration: const InputDecoration(
+                              labelText: 'Mã PIN phòng',
+                              labelStyle: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                              border: InputBorder.none,
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
             ),
 
-            // Animated BLE Radar
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: RadarPulseWidget(
-                size: 200,
-                isScanning: _isScanning,
+            // Animated BLE Radar (Thu nhỏ hoặc ẩn khi bàn phím xuất hiện chống tràn màn hình)
+            if (MediaQuery.of(context).viewInsets.bottom == 0)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: RadarPulseWidget(
+                  size: MediaQuery.of(context).size.height < 650 ? 140 : 180,
+                  isScanning: _isScanning,
+                ),
               ),
-            ),
 
             // Scan status title
             Padding(

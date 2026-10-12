@@ -55,6 +55,9 @@ dependencies:
 
   # Offline Storage
   shared_preferences: ^2.2.3
+
+  # Networking & Cloud Sync
+  http: ^1.2.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -41,11 +41,13 @@ class BleCentralService {
   final _rssiController = StreamController<int>.broadcast();
   final _downloadProgressController = StreamController<double>.broadcast();
   final _completedExamController = StreamController<ExamModel>.broadcast();
+  final _masterStartController = StreamController<bool>.broadcast();
 
   Stream<List<DiscoveredExamRoom>> get roomsStream => _roomsController.stream;
   Stream<int> get rssiStream => _rssiController.stream;
   Stream<double> get downloadProgressStream => _downloadProgressController.stream;
   Stream<ExamModel> get completedExamStream => _completedExamController.stream;
+  Stream<bool> get masterStartStream => _masterStartController.stream;
 
   bool get isConnected => isMockMode
       ? MockBleService.instance.isConnected
@@ -141,6 +143,10 @@ class BleCentralService {
 
       MockBleService.instance.chunkStream.listen((chunk) {
         _handleChunkReceived(chunk);
+      });
+
+      MockBleService.instance.masterStartStream.listen((started) {
+        _masterStartController.add(started);
       });
 
       return true;
@@ -263,6 +269,50 @@ class BleCentralService {
       isSuccess: true,
       message: 'Gửi bài thi thành công qua BLE Characteristic',
     );
+  }
+
+  /// Send join handshake request to Proctor Host
+  Future<bool> joinExamRoom({
+    required String studentId,
+    required String studentName,
+    required String classroom,
+    required String roomPin,
+    int totalQuestions = 20,
+  }) async {
+    if (isMockMode) {
+      MockBleService.instance.simulateIncomingCandidate(
+        studentId: studentId,
+        studentName: studentName,
+        classroom: classroom,
+        totalQuestions: totalQuestions,
+      );
+      return true;
+    }
+
+    // In hardware mode, candidates communicate through GATT char or advertisements
+    return true;
+  }
+
+  /// Send candidate progress update to Host (Heartbeat)
+  void sendCandidateProgress({
+    required String studentId,
+    required int answeredCount,
+    int batteryLevel = 90,
+  }) {
+    if (isMockMode) {
+      MockBleService.instance.simulateCandidateProgress(studentId, answeredCount);
+    }
+  }
+
+  /// Send anti-cheat violation alert to Host in realtime
+  void sendCandidateViolation({
+    required String studentId,
+    required int violationCount,
+    required String alertMessage,
+  }) {
+    if (isMockMode) {
+      MockBleService.instance.simulateCandidateViolation(studentId, alertMessage);
+    }
   }
 
   /// Disconnect

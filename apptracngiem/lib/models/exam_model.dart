@@ -91,6 +91,7 @@ class ExamModel {
   final String title;
   final int durationSeconds;
   final int rssiThreshold;
+  final String roomPin;
   final List<QuestionModel> questions;
   final DateTime? serverStartTime;
 
@@ -99,6 +100,7 @@ class ExamModel {
     required this.title,
     required this.durationSeconds,
     this.rssiThreshold = -80,
+    this.roomPin = '1234',
     required this.questions,
     this.serverStartTime,
   });
@@ -109,6 +111,7 @@ class ExamModel {
       title: json['title'] as String? ?? '',
       durationSeconds: json['duration_seconds'] as int? ?? 1800,
       rssiThreshold: json['rssi_threshold'] as int? ?? -80,
+      roomPin: json['room_pin'] as String? ?? '1234',
       questions: (json['questions'] as List<dynamic>?)
               ?.map((e) => QuestionModel.fromJson(e as Map<String, dynamic>))
               .toList() ??
@@ -125,6 +128,7 @@ class ExamModel {
       'title': title,
       'duration_seconds': durationSeconds,
       'rssi_threshold': rssiThreshold,
+      'room_pin': roomPin,
       'questions': questions.map((e) => e.toJson()).toList(),
       if (serverStartTime != null)
         'server_start_time': serverStartTime!.toIso8601String(),

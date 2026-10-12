@@ -17,12 +17,16 @@ class ExamDownloadScreen extends ConsumerStatefulWidget {
   final DiscoveredExamRoom room;
   final String studentName;
   final String studentId;
+  final String classroom;
+  final String roomPin;
 
   const ExamDownloadScreen({
     super.key,
     required this.room,
     required this.studentName,
     required this.studentId,
+    this.classroom = 'CNTT-K18A',
+    this.roomPin = '1234',
   });
 
   @override
@@ -32,9 +36,12 @@ class ExamDownloadScreen extends ConsumerStatefulWidget {
 class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
   bool _isConnected = false;
   bool _isConnecting = true;
+  bool _isPinError = false;
+  bool _isWaitingForMaster = false;
   String _statusMessage = 'Đang bắt tay kết nối BLE & Đàm phán MTU 512...';
   ExamModel? _downloadedExam;
   StreamSubscription<ExamModel>? _examSubscription;
+  StreamSubscription<bool>? _masterStartSubscription;
 
   @override
   void initState() {
@@ -66,11 +73,39 @@ class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
     });
 
     // Listen for completed reassembled exam
-    _examSubscription = BleCentralService.instance.completedExamStream.listen((exam) {
+    _examSubscription = BleCentralService.instance.completedExamStream.listen((exam) async {
       if (mounted) {
+        // Validate PIN
+        if (exam.roomPin.isNotEmpty && exam.roomPin != widget.roomPin) {
+          setState(() {
+            _downloadedExam = exam;
+            _isPinError = true;
+            _statusMessage = 'SAI MÃ PIN PHÒNG THI! Bạn đã nhập: "${widget.roomPin}".';
+          });
+          return;
+        }
+
         setState(() {
           _downloadedExam = exam;
-          _statusMessage = 'Tải và giải mã đề thi thành công!';
+          _isPinError = false;
+          _isWaitingForMaster = true;
+          _statusMessage = 'Đã điểm danh vào phòng! Đang chờ Giám thị phát lệnh bắt đầu...';
+        });
+
+        // Điểm danh thí sinh vào danh sách Roster của Giám thị
+        await BleCentralService.instance.joinExamRoom(
+          studentId: widget.studentId,
+          studentName: widget.studentName,
+          classroom: widget.classroom,
+          roomPin: widget.roomPin,
+          totalQuestions: exam.questions.length,
+        );
+
+        // Lắng nghe lệnh phát đề đồng loạt từ Giám thị (Master Start Sync)
+        _masterStartSubscription = BleCentralService.instance.masterStartStream.listen((started) {
+          if (started && mounted && !_isPinError) {
+            _onStartExam();
+          }
         });
       }
     });
@@ -85,22 +120,27 @@ class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
   @override
   void dispose() {
     _examSubscription?.cancel();
+    _masterStartSubscription?.cancel();
     super.dispose();
   }
 
   void _onStartExam() {
-    if (_downloadedExam == null) return;
+    if (_downloadedExam == null || _isPinError) return;
 
     ref.read(examSessionProvider.notifier).startExam(
           _downloadedExam!,
           studentId: widget.studentId,
           studentName: widget.studentName,
+          classroom: widget.classroom,
         );
 
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) => ExamTakingScreen(exam: _downloadedExam!),
+        builder: (_) => ExamTakingScreen(
+          exam: _downloadedExam!,
+          classroom: widget.classroom,
+        ),
       ),
     );
   }
@@ -318,6 +358,52 @@ class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
                             ],
                           ),
                         ).animate().fadeIn().slideY(begin: 0.1),
+
+                      if (_isPinError)
+                        Container(
+                          margin: const EdgeInsets.only(top: 16),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppColors.rssiCritical.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AppColors.rssiCritical),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.gpp_bad_rounded, color: AppColors.rssiCritical, size: 28),
+                              SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'MÃ PIN PHÒNG THI KHÔNG HỢP LỆ!\nVui lòng quay lại màn hình trước và nhập đúng mã PIN được Giám thị cung cấp.',
+                                  style: TextStyle(color: AppColors.rssiCritical, fontSize: 12, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      if (_isWaitingForMaster && !_isPinError)
+                        Container(
+                          margin: const EdgeInsets.only(top: 14),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppColors.secondary.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.secondary.withOpacity(0.4)),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.hourglass_top_rounded, color: AppColors.secondary, size: 20),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Đã điểm danh! Đồng hồ sẽ tự động bắt đầu khi Giám thị phát lệnh thi.',
+                                  style: TextStyle(color: AppColors.secondary, fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -327,22 +413,30 @@ class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
 
               // Action Button
               NeumorphicButton(
-                onPressed: _downloadedExam != null ? _onStartExam : null,
-                gradient: _downloadedExam != null ? AppColors.emeraldGradient : null,
+                onPressed: _isPinError
+                    ? () => Navigator.pop(context)
+                    : (_downloadedExam != null ? _onStartExam : null),
+                gradient: _isPinError
+                    ? AppColors.criticalGradient
+                    : (_downloadedExam != null ? AppColors.emeraldGradient : null),
                 isLoading: _isConnecting || (currentProgress > 0 && currentProgress < 1.0),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      _downloadedExam != null ? Icons.play_arrow_rounded : Icons.downloading_rounded,
+                      _isPinError
+                          ? Icons.arrow_back_rounded
+                          : (_downloadedExam != null ? Icons.play_arrow_rounded : Icons.downloading_rounded),
                       color: Colors.white,
                       size: 22,
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      _downloadedExam != null ? 'BẮT ĐẦU LÀM BÀI' : 'ĐANG TẢI ĐỀ THI...',
+                      _isPinError
+                          ? 'QUAY LẠI NHẬP LẠI PIN'
+                          : (_downloadedExam != null ? 'BẮT ĐẦU LÀM BÀI' : 'ĐANG TẢI ĐỀ THI...'),
                       style: const TextStyle(
-                        fontSize: 15,
+                        fontSize: 14,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
                         letterSpacing: 0.3,
@@ -407,6 +501,7 @@ class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
 
   Widget _buildExamMeta(IconData icon, String text) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 14, color: AppColors.primaryLight),
         const SizedBox(width: 5),

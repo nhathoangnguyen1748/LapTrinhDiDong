@@ -33,6 +33,17 @@ class LocalQuizBleApp extends StatelessWidget {
       title: 'LocalQuiz BLE',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
+      builder: (context, child) {
+        final mediaQueryData = MediaQuery.of(context);
+        final clampedScaler = mediaQueryData.textScaler.clamp(
+          minScaleFactor: 0.85,
+          maxScaleFactor: 1.25,
+        );
+        return MediaQuery(
+          data: mediaQueryData.copyWith(textScaler: clampedScaler),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       home: const HomeRoleSelectScreen(),
     );
   }

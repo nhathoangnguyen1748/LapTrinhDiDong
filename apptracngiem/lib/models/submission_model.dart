@@ -4,6 +4,7 @@ class SubmissionModel {
   final String examId;
   final String studentId;
   final String studentName;
+  final String? classroom;
   final Map<int, String> answers;
   final DateTime submittedAt;
   final int timeTakenSeconds;
@@ -11,11 +12,13 @@ class SubmissionModel {
   final int totalQuestions;
   final int violationCount;
   final String? deviceId;
+  final String? receiptHash;
 
   const SubmissionModel({
     required this.examId,
     required this.studentId,
     required this.studentName,
+    this.classroom,
     required this.answers,
     required this.submittedAt,
     required this.timeTakenSeconds,
@@ -23,6 +26,7 @@ class SubmissionModel {
     required this.totalQuestions,
     this.violationCount = 0,
     this.deviceId,
+    this.receiptHash,
   });
 
   factory SubmissionModel.fromJson(Map<String, dynamic> json) {
@@ -35,6 +39,7 @@ class SubmissionModel {
       examId: json['exam_id'] as String? ?? '',
       studentId: json['student_id'] as String? ?? '',
       studentName: json['student_name'] as String? ?? '',
+      classroom: json['classroom'] as String?,
       answers: parsedAnswers,
       submittedAt: json['submitted_at'] != null
           ? DateTime.tryParse(json['submitted_at'] as String) ?? DateTime.now()
@@ -44,6 +49,7 @@ class SubmissionModel {
       totalQuestions: json['total_questions'] as int? ?? 0,
       violationCount: json['violation_count'] as int? ?? 0,
       deviceId: json['device_id'] as String?,
+      receiptHash: json['receipt_hash'] as String?,
     );
   }
 
@@ -53,6 +59,7 @@ class SubmissionModel {
       'exam_id': examId,
       'student_id': studentId,
       'student_name': studentName,
+      if (classroom != null) 'classroom': classroom,
       'answers': stringAnswers,
       'submitted_at': submittedAt.toIso8601String(),
       'time_taken_seconds': timeTakenSeconds,
@@ -60,6 +67,7 @@ class SubmissionModel {
       'total_questions': totalQuestions,
       'violation_count': violationCount,
       if (deviceId != null) 'device_id': deviceId,
+      if (receiptHash != null) 'receipt_hash': receiptHash,
     };
   }
 

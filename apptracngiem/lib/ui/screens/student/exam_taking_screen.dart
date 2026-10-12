@@ -13,8 +13,13 @@ import 'exam_result_screen.dart';
 
 class ExamTakingScreen extends ConsumerStatefulWidget {
   final ExamModel exam;
+  final String classroom;
 
-  const ExamTakingScreen({super.key, required this.exam});
+  const ExamTakingScreen({
+    super.key,
+    required this.exam,
+    this.classroom = 'CNTT-K18A',
+  });
 
   @override
   ConsumerState<ExamTakingScreen> createState() => _ExamTakingScreenState();
@@ -473,74 +478,84 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
   void _showPaletteBottomSheet(BuildContext context, ExamSessionState session) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: AppColors.backgroundSecondary,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (_) {
-        return Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Center(
-                child: Text(
-                  'Danh Sách Câu Hỏi',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+        return ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.82,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Center(
+                  child: Text(
+                    'Danh Sách Câu Hỏi',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                alignment: WrapAlignment.center,
-                children: List.generate(widget.exam.questions.length, (i) {
-                  final qId = widget.exam.questions[i].id;
-                  final isDone = session.answers.containsKey(qId);
-                  final isCurrent = i == session.currentQuestionIndex;
+                const SizedBox(height: 16),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      alignment: WrapAlignment.center,
+                      children: List.generate(widget.exam.questions.length, (i) {
+                        final qId = widget.exam.questions[i].id;
+                        final isDone = session.answers.containsKey(qId);
+                        final isCurrent = i == session.currentQuestionIndex;
 
-                  return GestureDetector(
-                    onTap: () {
-                      ref.read(examSessionProvider.notifier).goToQuestion(i);
-                      Navigator.pop(context);
-                    },
-                    child: Container(
-                      width: 46,
-                      height: 46,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isCurrent
-                            ? AppColors.primary
-                            : (isDone ? AppColors.secondary.withOpacity(0.25) : AppColors.surfaceCard),
-                        border: Border.all(
-                          color: isCurrent
-                              ? AppColors.primaryLight
-                              : (isDone ? AppColors.secondary : AppColors.glassBorder),
-                        ),
-                      ),
-                      child: Text(
-                        '${i + 1}',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
+                        return GestureDetector(
+                          onTap: () {
+                            ref.read(examSessionProvider.notifier).goToQuestion(i);
+                            Navigator.pop(context);
+                          },
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: isCurrent
+                                  ? AppColors.primary
+                                  : (isDone ? AppColors.secondary.withOpacity(0.25) : AppColors.surfaceCard),
+                              border: Border.all(
+                                color: isCurrent
+                                    ? AppColors.primaryLight
+                                    : (isDone ? AppColors.secondary : AppColors.glassBorder),
+                              ),
+                            ),
+                            child: Text(
+                              '${i + 1}',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        );
+                      }),
                     ),
-                  );
-                }),
-              ),
-              const SizedBox(height: 24),
-              NeumorphicButton(
-                gradient: AppColors.emeraldGradient,
-                onPressed: () {
-                  Navigator.pop(context);
-                  _showSubmitConfirmation(context, session, widget.exam.questions.length);
-                },
-                child: const Text(
-                  'NỘP BÀI THI NGAY',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 20),
+                NeumorphicButton(
+                  gradient: AppColors.emeraldGradient,
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _showSubmitConfirmation(context, session, widget.exam.questions.length);
+                  },
+                  child: const Text(
+                    'NỘP BÀI THI NGAY',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },

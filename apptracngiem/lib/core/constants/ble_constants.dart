@@ -3,6 +3,7 @@ class BleConstants {
   static const String serviceUuid = '0000fef0-0000-1000-8000-00805f9b34fb';
   static const String charExamDataUuid = '0000fef1-0000-1000-8000-00805f9b34fb';
   static const String charSubmitResultUuid = '0000fef2-0000-1000-8000-00805f9b34fb';
+  static const String charCandidateControlUuid = '0000fef3-0000-1000-8000-00805f9b34fb'; // Roster & Master Start Command
 
   // RSSI Thresholds (dBm)
   // Standard: RSSI >= -75 dBm (In exam room)

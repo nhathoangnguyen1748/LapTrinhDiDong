@@ -21,6 +21,7 @@ class ExamSessionState {
   final SubmissionModel? submission;
   final String studentId;
   final String studentName;
+  final String classroom;
   final String? lastViolationReason;
 
   const ExamSessionState({
@@ -36,6 +37,7 @@ class ExamSessionState {
     this.submission,
     this.studentId = 'TS-2026-001',
     this.studentName = 'Nguyễn Văn An',
+    this.classroom = 'CNTT-K18A',
     this.lastViolationReason,
   });
 
@@ -52,6 +54,7 @@ class ExamSessionState {
     SubmissionModel? submission,
     String? studentId,
     String? studentName,
+    String? classroom,
     String? lastViolationReason,
   }) {
     return ExamSessionState(
@@ -67,6 +70,7 @@ class ExamSessionState {
       submission: submission ?? this.submission,
       studentId: studentId ?? this.studentId,
       studentName: studentName ?? this.studentName,
+      classroom: classroom ?? this.classroom,
       lastViolationReason: lastViolationReason ?? this.lastViolationReason,
     );
   }
@@ -82,6 +86,7 @@ class ExamSessionNotifier extends StateNotifier<ExamSessionState> {
     ExamModel exam, {
     String studentId = 'TS-2026-001',
     String studentName = 'Nguyễn Văn An',
+    String classroom = 'CNTT-K18A',
   }) async {
     _countdownTimer?.cancel();
 
@@ -100,6 +105,7 @@ class ExamSessionNotifier extends StateNotifier<ExamSessionState> {
       isSubmitting: false,
       studentId: studentId,
       studentName: studentName,
+      classroom: classroom,
       lastViolationReason: null,
     );
 
@@ -156,6 +162,11 @@ class ExamSessionNotifier extends StateNotifier<ExamSessionState> {
 
     if (state.exam != null) {
       LocalExamStorage.saveDraftAnswers(state.exam!.examId, updatedAnswers);
+      // Gửi tiến độ realtime về máy Giám thị (Heartbeat)
+      BleCentralService.instance.sendCandidateProgress(
+        studentId: state.studentId,
+        answeredCount: updatedAnswers.length,
+      );
     }
   }
 
@@ -197,6 +208,13 @@ class ExamSessionNotifier extends StateNotifier<ExamSessionState> {
       lastViolationReason: reason,
     );
 
+    // Gửi cảnh báo vi phạm về máy Giám thị qua BLE ngay lập tức
+    BleCentralService.instance.sendCandidateViolation(
+      studentId: state.studentId,
+      violationCount: count,
+      alertMessage: reason,
+    );
+
     if (count >= BleConstants.maxViolationsAllowed && !state.isSubmitted) {
       submitExam(isAutoSubmit: true);
     }
@@ -220,17 +238,20 @@ class ExamSessionNotifier extends StateNotifier<ExamSessionState> {
     }
 
     final timeTaken = state.exam!.durationSeconds - state.remainingSeconds;
+    final receiptHash = 'ACK-${state.studentId}-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
 
     final submission = SubmissionModel(
       examId: state.exam!.examId,
       studentId: state.studentId,
       studentName: state.studentName,
+      classroom: state.classroom,
       answers: state.answers,
       submittedAt: DateTime.now(),
       timeTakenSeconds: timeTaken > 0 ? timeTaken : 0,
       score: correctCount,
       totalQuestions: state.exam!.questions.length,
       violationCount: state.violationCount,
+      receiptHash: receiptHash,
     );
 
     try {

@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/permission_helper.dart';
+import '../../providers/auth_provider.dart';
 import '../common/glass_card.dart';
 import 'student/discovery_radar_screen.dart';
-import 'host/host_dashboard_screen.dart';
+import 'teacher/teacher_login_screen.dart';
+import 'teacher/teacher_exam_list_screen.dart';
 
-class HomeRoleSelectScreen extends StatefulWidget {
+class HomeRoleSelectScreen extends ConsumerStatefulWidget {
   const HomeRoleSelectScreen({super.key});
 
   @override
-  State<HomeRoleSelectScreen> createState() => _HomeRoleSelectScreenState();
+  ConsumerState<HomeRoleSelectScreen> createState() => _HomeRoleSelectScreenState();
 }
 
-class _HomeRoleSelectScreenState extends State<HomeRoleSelectScreen> {
+class _HomeRoleSelectScreenState extends ConsumerState<HomeRoleSelectScreen> {
   bool _useSimulator = true;
   bool _hasPermission = false;
 
@@ -268,13 +271,16 @@ class _HomeRoleSelectScreenState extends State<HomeRoleSelectScreen> {
 
                   const SizedBox(height: 16),
 
-                  // Role 2: Host / Proctor
+                  // Role 2: Teacher / Proctor
                   GlassCard(
                     onTap: () {
+                      final authState = ref.read(authProvider);
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => HostDashboardScreen(useSimulator: _useSimulator),
+                          builder: (_) => authState.isLoggedIn
+                              ? const TeacherExamListScreen()
+                              : const TeacherLoginScreen(),
                         ),
                       );
                     },
@@ -295,7 +301,7 @@ class _HomeRoleSelectScreenState extends State<HomeRoleSelectScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Phát Đề (Giám Thị)',
+                                'Khu Vực Giảng Viên',
                                 style: TextStyle(
                                   fontSize: 17,
                                   fontWeight: FontWeight.w700,
@@ -304,7 +310,7 @@ class _HomeRoleSelectScreenState extends State<HomeRoleSelectScreen> {
                               ),
                               SizedBox(height: 4),
                               Text(
-                                'Mở GATT Server phát đề qua BLE, giám sát thí sinh và nhận bài nộp trực tiếp',
+                                'Đăng nhập Cloud tải đề, mở GATT Server phát BLE và Sync kết quả sau ca thi',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: AppColors.textSecondary,
@@ -364,6 +370,7 @@ class _HomeRoleSelectScreenState extends State<HomeRoleSelectScreen> {
         border: Border.all(color: AppColors.glassBorder),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(icon, size: 14, color: AppColors.primary),

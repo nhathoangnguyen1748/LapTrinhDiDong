@@ -5,6 +5,8 @@ import '../models/submission_model.dart';
 import '../models/ble_packet_model.dart';
 import '../core/security/chunk_protocol.dart';
 
+import '../models/candidate_model.dart';
+
 class MockDiscoveredDevice {
   final String remoteId;
   final String platformName;
@@ -30,11 +32,17 @@ class MockBleService {
   final _rssiController = StreamController<int>.broadcast();
   final _chunkStreamController = StreamController<ChunkPacket>.broadcast();
   final _hostSubmissionsController = StreamController<SubmissionModel>.broadcast();
+  final _hostCandidatesController = StreamController<List<CandidateModel>>.broadcast();
+  final _masterStartController = StreamController<bool>.broadcast();
+
+  final List<CandidateModel> _mockCandidates = [];
 
   Stream<List<MockDiscoveredDevice>> get scanResults => _scanResultsController.stream;
   Stream<int> get rssiStream => _rssiController.stream;
   Stream<ChunkPacket> get chunkStream => _chunkStreamController.stream;
   Stream<SubmissionModel> get hostSubmissions => _hostSubmissionsController.stream;
+  Stream<List<CandidateModel>> get hostCandidates => _hostCandidatesController.stream;
+  Stream<bool> get masterStartStream => _masterStartController.stream;
 
   bool get isScanning => _isScanning;
   bool get isConnected => _isConnected;
@@ -125,11 +133,86 @@ class MockBleService {
     await Future.delayed(const Duration(milliseconds: 1000));
     _hostSubmissionsController.add(submission);
 
+    // Update mock candidate status to submitted
+    final idx = _mockCandidates.indexWhere((c) => c.studentId == submission.studentId);
+    if (idx >= 0) {
+      _mockCandidates[idx] = _mockCandidates[idx].copyWith(
+        status: CandidateStatus.submitted,
+        submittedAt: submission.submittedAt,
+        receiptHash: 'ACK-${submission.studentId}-OK',
+      );
+      _hostCandidatesController.add(List.from(_mockCandidates));
+    }
+
     return BlePacketModel.ack(
       examId: submission.examId,
       studentId: submission.studentId,
       isSuccess: true,
       message: 'Giám thị đã nhận thành công bài thi của ${submission.studentName}',
     );
+  }
+
+  /// Notify all mock clients that Master Proctor pressed "Start Exam"
+  void notifyMasterStart() {
+    _masterStartController.add(true);
+    for (int i = 0; i < _mockCandidates.length; i++) {
+      if (_mockCandidates[i].status == CandidateStatus.waiting) {
+        _mockCandidates[i] = _mockCandidates[i].copyWith(status: CandidateStatus.taking);
+      }
+    }
+    _hostCandidatesController.add(List.from(_mockCandidates));
+  }
+
+  /// Simulate incoming candidate joining the room
+  void simulateIncomingCandidate({
+    required String studentId,
+    required String studentName,
+    String classroom = 'CNTT-K18A',
+    String deviceName = 'Galaxy S23',
+    int totalQuestions = 20,
+  }) {
+    final candidate = CandidateModel(
+      studentId: studentId,
+      studentName: studentName,
+      classroom: classroom,
+      deviceName: deviceName,
+      status: CandidateStatus.waiting,
+      answeredCount: 0,
+      totalQuestions: totalQuestions,
+      batteryLevel: 92,
+      violationCount: 0,
+      lastSeen: DateTime.now(),
+    );
+
+    _mockCandidates.removeWhere((c) => c.studentId == studentId);
+    _mockCandidates.add(candidate);
+    _hostCandidatesController.add(List.from(_mockCandidates));
+  }
+
+  /// Simulate candidate progress update
+  void simulateCandidateProgress(String studentId, int answered) {
+    final idx = _mockCandidates.indexWhere((c) => c.studentId == studentId);
+    if (idx >= 0) {
+      _mockCandidates[idx] = _mockCandidates[idx].copyWith(
+        answeredCount: answered,
+        status: CandidateStatus.taking,
+        lastSeen: DateTime.now(),
+      );
+      _hostCandidatesController.add(List.from(_mockCandidates));
+    }
+  }
+
+  /// Simulate candidate violation event
+  void simulateCandidateViolation(String studentId, String alert) {
+    final idx = _mockCandidates.indexWhere((c) => c.studentId == studentId);
+    if (idx >= 0) {
+      final old = _mockCandidates[idx];
+      _mockCandidates[idx] = old.copyWith(
+        violationCount: old.violationCount + 1,
+        lastViolationAlert: alert,
+        lastSeen: DateTime.now(),
+      );
+      _hostCandidatesController.add(List.from(_mockCandidates));
+    }
   }
 }
