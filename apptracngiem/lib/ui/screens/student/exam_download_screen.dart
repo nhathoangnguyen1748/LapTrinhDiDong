@@ -124,14 +124,15 @@ class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Room Info Card
               GlassCard(
-                padding: const EdgeInsets.all(18),
+                padding: const EdgeInsets.all(16),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
                       width: 48,
@@ -160,10 +161,11 @@ class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
                             'Thí sinh: ${widget.studentName} (${widget.studentId})',
                             style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                           ),
+                          const SizedBox(height: 8),
+                          RssiBadge(rssi: widget.room.rssi, isCompact: true),
                         ],
                       ),
                     ),
-                    RssiBadge(rssi: widget.room.rssi, isCompact: true),
                   ],
                 ),
               ),
@@ -295,8 +297,9 @@ class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
                                 ],
                               ),
                               const SizedBox(height: 12),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              Wrap(
+                                spacing: 16,
+                                runSpacing: 10,
                                 children: [
                                   _buildExamMeta(
                                     Icons.timer_rounded,
