@@ -211,6 +211,26 @@ class ApiService {
     }
   }
 
+  /// Tải file Excel báo cáo kết quả thi từ Server
+  Future<List<int>> downloadExcelReport(String examId) async {
+    final url = Uri.parse('$_baseUrl/exams/$examId/export-excel');
+    final response = await http.get(url, headers: _headers());
+    if (response.statusCode == 200) {
+      return response.bodyBytes;
+    } else {
+      throw Exception(_parseError(response));
+    }
+  }
+
+  /// Xóa đề thi trên Server
+  Future<void> deleteExam(String examId) async {
+    final url = Uri.parse('$_baseUrl/exams/$examId');
+    final response = await http.delete(url, headers: _headers());
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw Exception(_parseError(response));
+    }
+  }
+
   String _parseError(http.Response response) {
     try {
       final body = jsonDecode(utf8.decode(response.bodyBytes));

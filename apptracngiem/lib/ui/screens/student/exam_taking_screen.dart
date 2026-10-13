@@ -75,13 +75,16 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
                   if (examSession.violationCount > 0)
                     _buildViolationBanner(examSession),
 
-                  // Question Palette Navigator
-                  _buildQuestionPalette(examSession, questions.length),
-
                   // Question Content & Options
                   Expanded(
                     child: currentQuestion != null
-                        ? _buildQuestionContent(currentQuestion, selectedOption, isFlagged)
+                        ? _buildQuestionContent(
+                            currentQuestion,
+                            selectedOption,
+                            isFlagged,
+                            currentIndex: currentIndex,
+                            totalQuestions: questions.length,
+                          )
                         : const Center(child: Text('Không có câu hỏi')),
                   ),
 
@@ -165,12 +168,33 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
 
           const SizedBox(width: 4),
 
-          // Question Palette Trigger Button
-          IconButton(
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            icon: const Icon(Icons.grid_view_rounded, color: AppColors.textPrimary, size: 28),
-            onPressed: () => _showPaletteBottomSheet(context, session),
+          // Question Palette Trigger Button with badge
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: const Icon(Icons.grid_view_rounded, color: AppColors.textPrimary, size: 28),
+                onPressed: () => _showPaletteBottomSheet(context, session),
+              ),
+              if (session.flaggedQuestions.isNotEmpty)
+                Positioned(
+                  top: -2,
+                  right: -2,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: AppColors.rssiWarning,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '${session.flaggedQuestions.length}',
+                      style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ],
       ),
@@ -201,84 +225,13 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
     ).animate().shake(duration: 400.ms);
   }
 
-  Widget _buildQuestionPalette(ExamSessionState session, int totalQuestions) {
-    return Container(
-      height: 44,
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        scrollDirection: Axis.horizontal,
-        itemCount: totalQuestions,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final isCurrent = index == session.currentQuestionIndex;
-          final qId = widget.exam.questions[index].id;
-          final isAnswered = session.answers.containsKey(qId);
-          final isFlagged = session.flaggedQuestions.contains(qId);
-
-          Color bgColor;
-          Color borderColor;
-          Color textColor;
-
-          if (isCurrent) {
-            bgColor = AppColors.primary;
-            borderColor = AppColors.primaryLight;
-            textColor = Colors.white;
-          } else if (isAnswered) {
-            bgColor = AppColors.secondary.withOpacity(0.2);
-            borderColor = AppColors.secondary;
-            textColor = AppColors.secondaryLight;
-          } else {
-            bgColor = AppColors.surfaceCard;
-            borderColor = AppColors.glassBorder;
-            textColor = AppColors.textSecondary;
-          }
-
-          return GestureDetector(
-            onTap: () => ref.read(examSessionProvider.notifier).goToQuestion(index),
-            child: Container(
-              width: 38,
-              height: 38,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: bgColor,
-                border: Border.all(color: borderColor, width: isCurrent ? 2 : 1),
-              ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Text(
-                    '${index + 1}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: textColor,
-                    ),
-                  ),
-                  if (isFlagged)
-                    Positioned(
-                      top: 4,
-                      right: 4,
-                      child: Container(
-                        width: 6,
-                        height: 6,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.rssiWarning,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildQuestionContent(QuestionModel question, String? selectedOption, bool isFlagged) {
+  Widget _buildQuestionContent(
+    QuestionModel question,
+    String? selectedOption,
+    bool isFlagged, {
+    required int currentIndex,
+    required int totalQuestions,
+  }) {
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       child: Column(
@@ -294,33 +247,49 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'CÂU HỎI ${question.id}',
+                      'CÂU HỎI ${currentIndex + 1} / $totalQuestions',
                       style: const TextStyle(
-                        fontSize: 12,
+                        fontSize: 13,
                         fontWeight: FontWeight.w800,
                         color: AppColors.primary,
-                        letterSpacing: 1.0,
+                        letterSpacing: 0.8,
                       ),
                     ),
-                    if (isFlagged)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    InkWell(
+                      onTap: () => ref.read(examSessionProvider.notifier).toggleFlag(question.id),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
-                          color: AppColors.rssiWarning.withOpacity(0.15),
+                          color: isFlagged
+                              ? AppColors.rssiWarning.withOpacity(0.18)
+                              : Colors.white.withOpacity(0.06),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppColors.rssiWarning.withOpacity(0.4)),
+                          border: Border.all(
+                            color: isFlagged ? AppColors.rssiWarning : AppColors.glassBorder,
+                          ),
                         ),
-                        child: const Row(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.flag_rounded, size: 12, color: AppColors.rssiWarning),
-                            SizedBox(width: 4),
+                            Icon(
+                              isFlagged ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                              size: 15,
+                              color: isFlagged ? AppColors.rssiWarning : AppColors.textMuted,
+                            ),
+                            const SizedBox(width: 4),
                             Text(
-                              'Xem lại',
-                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.rssiWarning),
+                              isFlagged ? 'Đang xem lại' : 'Xem lại',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: isFlagged ? AppColors.rssiWarning : AppColors.textMuted,
+                              ),
                             ),
                           ],
                         ),
                       ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -511,31 +480,58 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
                         final qId = widget.exam.questions[i].id;
                         final isDone = session.answers.containsKey(qId);
                         final isCurrent = i == session.currentQuestionIndex;
+                        final isFlagged = session.flaggedQuestions.contains(qId);
 
                         return GestureDetector(
                           onTap: () {
                             ref.read(examSessionProvider.notifier).goToQuestion(i);
                             Navigator.pop(context);
                           },
-                          child: Container(
-                            width: 44,
-                            height: 44,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: isCurrent
-                                  ? AppColors.primary
-                                  : (isDone ? AppColors.secondary.withOpacity(0.25) : AppColors.surfaceCard),
-                              border: Border.all(
-                                color: isCurrent
-                                    ? AppColors.primaryLight
-                                    : (isDone ? AppColors.secondary : AppColors.glassBorder),
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Container(
+                                width: 44,
+                                height: 44,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: isCurrent
+                                      ? AppColors.primary
+                                      : (isDone ? AppColors.secondary.withOpacity(0.25) : AppColors.surfaceCard),
+                                  border: Border.all(
+                                    color: isCurrent
+                                        ? AppColors.primaryLight
+                                        : (isDone ? AppColors.secondary : AppColors.glassBorder),
+                                    width: isCurrent ? 2 : 1,
+                                  ),
+                                ),
+                                child: Text(
+                                  '${i + 1}',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: isCurrent ? Colors.white : AppColors.textPrimary,
+                                  ),
+                                ),
                               ),
-                            ),
-                            child: Text(
-                              '${i + 1}',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
+                              if (isFlagged)
+                                Positioned(
+                                  top: -2,
+                                  right: -2,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(3),
+                                    decoration: const BoxDecoration(
+                                      color: AppColors.rssiWarning,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.bookmark_rounded,
+                                      size: 10,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         );
                       }),

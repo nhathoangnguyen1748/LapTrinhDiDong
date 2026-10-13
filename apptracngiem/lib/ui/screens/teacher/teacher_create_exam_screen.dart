@@ -1,7 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/storage/local_exam_storage.dart';
+import '../../../core/utils/excel_helper.dart';
 import '../../../models/exam_model.dart';
 import '../../../services/api_service.dart';
 import '../../common/glass_card.dart';
@@ -15,8 +16,8 @@ class TeacherCreateExamScreen extends StatefulWidget {
 }
 
 class _TeacherCreateExamScreenState extends State<TeacherCreateExamScreen> {
-  final _idController = TextEditingController(text: 'EXAM_CNTT_K18');
-  final _titleController = TextEditingController(text: 'Kiểm Tra Chuyên Đề IoT & Lập Trình Di Động');
+  final _idController = TextEditingController(text: 'EXAM_CNTT_${DateTime.now().minute}${DateTime.now().second}');
+  final _titleController = TextEditingController(text: 'Kiểm Tra Chuyên Đề Lập Trình Di Động');
   final _durationController = TextEditingController(text: '20');
   final _pinController = TextEditingController(text: '1234');
   int _rssiThreshold = -80;
@@ -56,6 +57,73 @@ class _TeacherCreateExamScreenState extends State<TeacherCreateExamScreen> {
     super.dispose();
   }
 
+  /// Nạp danh sách câu hỏi từ file Excel (.xlsx)
+  Future<void> _handleImportExcel() async {
+    try {
+      final files = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['xlsx', 'xls'],
+      );
+
+      if (files.isEmpty) return;
+
+      setState(() => _isLoading = true);
+
+      final file = files.first;
+      final bytes = await file.readAsBytes();
+
+      if (bytes.isEmpty) {
+        throw Exception('File đã chọn không có dữ liệu (rỗng).');
+      }
+
+      final imported = ExcelHelper.parseQuestionsFromExcel(bytes);
+
+      setState(() {
+        _questions.clear();
+        _questions.addAll(imported);
+        _isLoading = false;
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Đã nạp thành công ${imported.length} câu hỏi từ file Excel!'),
+          backgroundColor: AppColors.secondary,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi nạp Excel: ${e.toString().replaceAll("Exception: ", "")}'),
+          backgroundColor: AppColors.rssiCritical,
+        ),
+      );
+    }
+  }
+
+  /// Tải / Chia sẻ file Excel mẫu để giảng viên chỉnh sửa
+  Future<void> _handleDownloadTemplate() async {
+    try {
+      final templateBytes = ExcelHelper.createQuestionTemplateExcel();
+      await ExcelHelper.shareOrSaveExcelFile(
+        bytes: templateBytes,
+        filename: 'Mau_De_Thi_LocalQuiz.xlsx',
+        title: 'Mẫu Đề Thi Trắc Nghiệm Excel (.xlsx)',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Không thể tạo file mẫu: $e'),
+          backgroundColor: AppColors.rssiCritical,
+        ),
+      );
+    }
+  }
+
+  /// Hộp thoại thêm hoặc sửa câu hỏi (Không bao giờ tràn màn hình)
   void _showAddQuestionDialog({QuestionModel? editingQuestion, int? index}) {
     final contentCtrl = TextEditingController(text: editingQuestion?.content ?? '');
     final optACtrl = TextEditingController(text: editingQuestion?.options.isNotEmpty == true ? editingQuestion!.options[0].text : '');
@@ -69,8 +137,11 @@ class _TeacherCreateExamScreenState extends State<TeacherCreateExamScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDlgState) => AlertDialog(
           backgroundColor: AppColors.surfaceDark,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text(editingQuestion != null ? 'Sửa Câu Hỏi ${editingQuestion.id}' : 'Thêm Câu Hỏi Mới'),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: Text(
+            editingQuestion != null ? 'Sửa Câu Hỏi ${editingQuestion.id}' : 'Thêm Câu Hỏi Mới',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -83,9 +154,10 @@ class _TeacherCreateExamScreenState extends State<TeacherCreateExamScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Nội dung câu hỏi',
                     border: OutlineInputBorder(),
+                    isDense: true,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 _buildOptionField('A', optACtrl),
                 const SizedBox(height: 8),
                 _buildOptionField('B', optBCtrl),
@@ -93,35 +165,56 @@ class _TeacherCreateExamScreenState extends State<TeacherCreateExamScreen> {
                 _buildOptionField('C', optCCtrl),
                 const SizedBox(height: 8),
                 _buildOptionField('D', optDCtrl),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
+
+                // Lựa chọn đáp án đúng: Chia đều 4 nút bằng Expanded, chống tràn 100%
+                const Text(
+                  'Chọn đáp án đúng:',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 8),
                 Row(
-                  children: [
-                    const Text('Đáp án đúng: ', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-                    const SizedBox(width: 8),
-                    ...['A', 'B', 'C', 'D'].map((opt) {
-                      final isSelected = correctOpt == opt;
-                      return GestureDetector(
-                        onTap: () => setDlgState(() => correctOpt = opt),
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          width: 32,
-                          height: 32,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: isSelected ? AppColors.secondary : Colors.white12,
+                  children: ['A', 'B', 'C', 'D'].map((opt) {
+                    final isSelected = correctOpt == opt;
+                    return Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 3),
+                        child: InkWell(
+                          onTap: () => setDlgState(() => correctOpt = opt),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              color: isSelected ? AppColors.secondary : Colors.white10,
+                              border: Border.all(
+                                color: isSelected ? AppColors.secondary : Colors.white24,
+                                width: isSelected ? 1.5 : 1.0,
+                              ),
+                            ),
+                            child: Text(
+                              opt,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: isSelected ? Colors.white : AppColors.textPrimary,
+                              ),
+                            ),
                           ),
-                          child: Text(opt, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                         ),
-                      );
-                    }),
-                  ],
+                      ),
+                    );
+                  }).toList(),
                 ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Hủy'),
+            ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: AppColors.secondary),
               onPressed: () {
@@ -147,10 +240,47 @@ class _TeacherCreateExamScreenState extends State<TeacherCreateExamScreen> {
                 });
                 Navigator.pop(ctx);
               },
-              child: const Text('Lưu câu hỏi', style: TextStyle(color: Colors.white)),
+              child: const Text('Lưu câu hỏi', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Hộp thoại xác nhận xóa câu hỏi
+  void _confirmDeleteQuestion(int index) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceDark,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Xác nhận xóa', style: TextStyle(fontSize: 16)),
+        content: Text('Bạn có chắc chắn muốn xóa câu hỏi ${index + 1} không?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.rssiCritical),
+            onPressed: () {
+              Navigator.pop(ctx);
+              setState(() {
+                _questions.removeAt(index);
+                // Đánh lại số thứ tự ID
+                for (int i = 0; i < _questions.length; i++) {
+                  _questions[i] = _questions[i].copyWith(id: i + 1);
+                }
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Đã xóa câu hỏi ${index + 1}'),
+                  backgroundColor: AppColors.rssiCritical,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+            child: const Text('Xóa', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
   }
@@ -175,90 +305,6 @@ class _TeacherCreateExamScreenState extends State<TeacherCreateExamScreen> {
     );
   }
 
-  void _showImportJsonDialog() {
-    final jsonCtrl = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceDark,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [
-            Icon(Icons.file_upload_rounded, color: AppColors.primary),
-            SizedBox(width: 8),
-            Text('Nạp Câu Hỏi Từ JSON', style: TextStyle(fontSize: 16)),
-          ],
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Dán cấu trúc JSON ngân hàng câu hỏi hoặc nạp nhanh bộ mẫu:',
-                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: jsonCtrl,
-                maxLines: 8,
-                style: const TextStyle(fontSize: 11, fontFamily: 'monospace', color: AppColors.textPrimary),
-                decoration: const InputDecoration(
-                  hintText: '[\n  {\n    "id": 1,\n    "content": "Câu hỏi?",\n    "options": [\n      {"id": "A", "text": "..."}\n    ],\n    "correct_option_id": "A"\n  }\n]',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  TextButton.icon(
-                    icon: const Icon(Icons.flash_on_rounded, size: 16, color: AppColors.rssiWarning),
-                    label: const Text('Nạp mẫu 6 câu BLE', style: TextStyle(fontSize: 11, color: AppColors.rssiWarning)),
-                    onPressed: () {
-                      final sampleExam = ExamModel.sampleExam();
-                      final sampleJson = jsonEncode(sampleExam.questions.map((q) => q.toJson()).toList());
-                      jsonCtrl.text = sampleJson;
-                    },
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-            onPressed: () {
-              try {
-                final raw = jsonDecode(jsonCtrl.text.trim()) as List<dynamic>;
-                final parsed = raw.map((q) => QuestionModel.fromJson(q as Map<String, dynamic>)).toList();
-                if (parsed.isNotEmpty) {
-                  setState(() {
-                    _questions.clear();
-                    _questions.addAll(parsed);
-                  });
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Đã nạp thành công ${parsed.length} câu hỏi!'), backgroundColor: AppColors.secondary),
-                  );
-                }
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('JSON không đúng định dạng: $e'), backgroundColor: AppColors.rssiCritical),
-                );
-              }
-            },
-            child: const Text('Nạp vào đề', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _handleSaveExam() async {
     final examId = _idController.text.trim();
     final title = _titleController.text.trim();
@@ -267,14 +313,20 @@ class _TeacherCreateExamScreenState extends State<TeacherCreateExamScreen> {
 
     if (examId.isEmpty || title.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập Mã đề thi và Tên môn thi!'), backgroundColor: AppColors.rssiCritical),
+        const SnackBar(
+          content: Text('Vui lòng nhập Mã đề thi và Tên bài thi'),
+          backgroundColor: AppColors.rssiCritical,
+        ),
       );
       return;
     }
 
     if (_questions.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đề thi phải có ít nhất 1 câu hỏi!'), backgroundColor: AppColors.rssiCritical),
+        const SnackBar(
+          content: Text('Cần ít nhất 1 câu hỏi để tạo đề thi'),
+          backgroundColor: AppColors.rssiCritical,
+        ),
       );
       return;
     }
@@ -288,13 +340,12 @@ class _TeacherCreateExamScreenState extends State<TeacherCreateExamScreen> {
       rssiThreshold: _rssiThreshold,
       roomPin: pin.isNotEmpty ? pin : '1234',
       questions: _questions,
-      serverStartTime: DateTime.now(),
     );
 
-    // Save locally offline first
+    // Lưu offline vào Local Storage
     await LocalExamStorage.saveDownloadedExam(examModel);
 
-    // Sync to Server if connected
+    // Đồng bộ lên Backend nếu có mạng
     try {
       final examPayload = {
         'id': examId,
@@ -306,7 +357,7 @@ class _TeacherCreateExamScreenState extends State<TeacherCreateExamScreen> {
       };
       await ApiService.instance.createExam(examPayload);
     } catch (_) {
-      // If server unreachable, it is still stored locally offline
+      // Khi offline vẫn an toàn vì đã lưu cục bộ
     }
 
     if (!mounted) return;
@@ -314,7 +365,7 @@ class _TeacherCreateExamScreenState extends State<TeacherCreateExamScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Đã tạo đề thi "$title" (${_questions.length} câu) thành công!'),
+        content: Text('Đã lưu đề thi "$title" (${_questions.length} câu) thành công!'),
         backgroundColor: AppColors.secondary,
       ),
     );
@@ -326,24 +377,24 @@ class _TeacherCreateExamScreenState extends State<TeacherCreateExamScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tạo Đề Thi Mới'),
+        title: const Text('Soạn & Nạp Đề Thi'),
         actions: [
           IconButton(
-            tooltip: 'Nạp câu hỏi từ file JSON',
-            icon: const Icon(Icons.file_upload_rounded),
-            onPressed: _showImportJsonDialog,
+            tooltip: 'Tải file Excel mẫu',
+            icon: const Icon(Icons.download_rounded),
+            onPressed: _handleDownloadTemplate,
           ),
         ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Basic Config Card
+              // 1. Thẻ thông tin bài thi
               GlassCard(
-                padding: const EdgeInsets.all(18),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -352,34 +403,34 @@ class _TeacherCreateExamScreenState extends State<TeacherCreateExamScreen> {
                         Icon(Icons.tune_rounded, color: AppColors.primary, size: 20),
                         SizedBox(width: 8),
                         Text(
-                          'Cấu hình Thông Tin Bài Thi & Phòng BLE',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                          'Thông Tin Ca Thi',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 12),
                     TextField(
                       controller: _idController,
                       style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
                       decoration: const InputDecoration(
-                        labelText: 'Mã bài thi (Ví dụ: EXAM_CNTT_K18)',
-                        prefixIcon: Icon(Icons.tag_rounded, size: 20),
+                        labelText: 'Mã bài thi',
+                        prefixIcon: Icon(Icons.tag_rounded, size: 18),
                         border: OutlineInputBorder(),
                         isDense: true,
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     TextField(
                       controller: _titleController,
                       style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
                       decoration: const InputDecoration(
                         labelText: 'Tên môn thi / Bài thi',
-                        prefixIcon: Icon(Icons.title_rounded, size: 20),
+                        prefixIcon: Icon(Icons.title_rounded, size: 18),
                         border: OutlineInputBorder(),
                         isDense: true,
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     Row(
                       children: [
                         Expanded(
@@ -395,14 +446,14 @@ class _TeacherCreateExamScreenState extends State<TeacherCreateExamScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: TextField(
                             controller: _pinController,
                             keyboardType: TextInputType.number,
                             style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
                             decoration: const InputDecoration(
-                              labelText: 'Mã PIN phòng thi',
+                              labelText: 'Mã PIN phòng',
                               prefixIcon: Icon(Icons.pin_rounded, size: 18),
                               border: OutlineInputBorder(),
                               isDense: true,
@@ -412,134 +463,176 @@ class _TeacherCreateExamScreenState extends State<TeacherCreateExamScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Ngưỡng RSSI Geofence:',
-                          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+
+                    // Cấu hình Ngưỡng RSSI: Dùng DropdownButtonFormField full-width chống tràn hoàn toàn
+                    const Text(
+                      'Ngưỡng sóng an toàn (RSSI Geofencing):',
+                      style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    ),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<int>(
+                      value: _rssiThreshold,
+                      dropdownColor: AppColors.surfaceDark,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: -75,
+                          child: Text('-75 dBm (Phòng hẹp < 5m)', style: TextStyle(fontSize: 12)),
                         ),
-                        DropdownButton<int>(
-                          value: _rssiThreshold,
-                          dropdownColor: AppColors.surfaceDark,
-                          items: const [
-                            DropdownMenuItem(value: -75, child: Text('-75 dBm (Phòng hẹp < 5m)')),
-                            DropdownMenuItem(value: -80, child: Text('-80 dBm (Chuẩn 8-10m)')),
-                            DropdownMenuItem(value: -85, child: Text('-85 dBm (Phòng rộng 12-15m)')),
-                          ],
-                          onChanged: (val) {
-                            if (val != null) setState(() => _rssiThreshold = val);
-                          },
+                        DropdownMenuItem(
+                          value: -80,
+                          child: Text('-80 dBm (Tiêu chuẩn 8 - 10m)', style: TextStyle(fontSize: 12)),
+                        ),
+                        DropdownMenuItem(
+                          value: -85,
+                          child: Text('-85 dBm (Phòng rộng 12 - 15m)', style: TextStyle(fontSize: 12)),
                         ),
                       ],
+                      onChanged: (val) {
+                        if (val != null) setState(() => _rssiThreshold = val);
+                      },
                     ),
                   ],
                 ),
               ),
 
-              const SizedBox(height: 18),
+              const SizedBox(height: 14),
 
-              // Questions List Header
+              // 2. Thẻ Nạp Đề Bằng Excel
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  gradient: AppColors.emeraldGradient.scale(0.85),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.table_chart_rounded, color: Colors.white, size: 24),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'Nạp Đề Bằng File Excel (.xlsx)',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Tải file mẫu',
+                          icon: const Icon(Icons.file_download_outlined, color: Colors.white, size: 20),
+                          onPressed: _handleDownloadTemplate,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Hỗ trợ cột: [STT, Câu hỏi, Phương án A, B, C, D, Đáp án đúng]',
+                      style: TextStyle(color: Colors.white70, fontSize: 11),
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: AppColors.secondary,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      icon: const Icon(Icons.upload_file_rounded, size: 18),
+                      label: const Text('CHỌN FILE EXCEL TỪ ĐIỆN THOẠI', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      onPressed: _handleImportExcel,
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 14),
+
+              // 3. Danh sách câu hỏi & Thêm thủ công
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Ngân hàng câu hỏi (${_questions.length})',
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                    'Câu hỏi đã nạp (${_questions.length})',
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                   ),
-                  Row(
-                    children: [
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.file_upload_rounded, size: 16),
-                        label: const Text('Nạp JSON', style: TextStyle(fontSize: 12)),
-                        onPressed: _showImportJsonDialog,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.primary,
-                          side: const BorderSide(color: AppColors.primary),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.add_rounded, size: 18, color: Colors.white),
-                        label: const Text('Thêm câu', style: TextStyle(fontSize: 12, color: Colors.white)),
-                        style: ElevatedButton.styleFrom(backgroundColor: AppColors.secondary),
-                        onPressed: () => _showAddQuestionDialog(),
-                      ),
-                    ],
+                  TextButton.icon(
+                    icon: const Icon(Icons.add_rounded, size: 16),
+                    label: const Text('Thêm câu', style: TextStyle(fontSize: 12)),
+                    onPressed: () => _showAddQuestionDialog(),
                   ),
                 ],
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 6),
 
-              // Questions List
-              ..._questions.asMap().entries.map((entry) {
-                final index = entry.key;
-                final q = entry.value;
-
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: GlassCard(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary.withOpacity(0.18),
-                                borderRadius: BorderRadius.circular(6),
+              if (_questions.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  alignment: Alignment.center,
+                  child: const Text('Chưa có câu hỏi nào. Hãy chọn file Excel hoặc bấm Thêm câu.', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                )
+              else
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _questions.length,
+                  itemBuilder: (context, index) {
+                    final q = _questions[index];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceCard,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.glassBorder),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text('Câu ${index + 1}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
                               ),
-                              child: Text(
-                                'Câu ${index + 1}',
-                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
+                              const Spacer(),
+                              Text('Đ/A: ${q.correctOptionId}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.secondary)),
+                              const SizedBox(width: 8),
+                              InkWell(
+                                onTap: () => _showAddQuestionDialog(editingQuestion: q, index: index),
+                                child: const Icon(Icons.edit_outlined, size: 16, color: AppColors.textMuted),
                               ),
-                            ),
-                            const Spacer(),
-                            IconButton(
-                              icon: const Icon(Icons.edit_outlined, size: 18, color: AppColors.textMuted),
-                              onPressed: () => _showAddQuestionDialog(editingQuestion: q, index: index),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.rssiCritical),
-                              onPressed: () {
-                                setState(() => _questions.removeAt(index));
-                              },
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          q.content,
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 4,
-                          children: q.options.map((opt) {
-                            final isCorrect = q.correctOptionId == opt.id;
-                            return Text(
-                              '${opt.id}. ${opt.text}',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: isCorrect ? FontWeight.bold : FontWeight.normal,
-                                color: isCorrect ? AppColors.secondary : AppColors.textSecondary,
+                              const SizedBox(width: 10),
+                              InkWell(
+                                onTap: () => _confirmDeleteQuestion(index),
+                                child: const Icon(Icons.delete_outline_rounded, size: 16, color: AppColors.rssiCritical),
                               ),
-                            );
-                          }).toList(),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            q.content,
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
-              // Save Button
+              // 4. Nút lưu đề thi
               NeumorphicButton(
                 gradient: AppColors.emeraldGradient,
                 isLoading: _isLoading,
@@ -547,15 +640,17 @@ class _TeacherCreateExamScreenState extends State<TeacherCreateExamScreen> {
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.save_rounded, color: Colors.white, size: 20),
-                    SizedBox(width: 8),
+                    Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 18),
+                    SizedBox(width: 6),
                     Text(
-                      'LƯU ĐỀ THI & SẴN SÀNG PHÁT BLE',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14),
+                      'LƯU ĐỀ THI & PHÁT BLE',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                   ],
                 ),
               ),
+
+              const SizedBox(height: 16),
             ],
           ),
         ),

@@ -75,6 +75,16 @@ class LocalExamStorage {
     return prefs.containsKey('localquiz_pkg_$examId');
   }
 
+  /// Xóa gói đề thi đã tải khỏi bộ nhớ thiết bị
+  static Future<void> deleteDownloadedExam(String examId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('localquiz_pkg_$examId');
+
+    final list = prefs.getStringList(_keyDownloadedExamsList) ?? [];
+    list.remove(examId);
+    await prefs.setStringList(_keyDownloadedExamsList, list);
+  }
+
   /// Lưu bản nháp bài làm của thí sinh theo thời gian thực (chống mất dữ liệu khi sập nguồn)
   /// [examId]: ID của đề thi.
   /// [answers]: Bản đồ nối ID câu hỏi với ID phương án đã chọn.

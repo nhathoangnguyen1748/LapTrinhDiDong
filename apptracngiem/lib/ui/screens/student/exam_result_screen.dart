@@ -246,16 +246,17 @@ class ExamResultScreen extends StatelessWidget {
     required String value,
     required IconData icon,
     required Color color,
+    double? fontSize,
   }) {
     return GlassCard(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, size: 18, color: color),
-              const SizedBox(width: 8),
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   title,
@@ -264,13 +265,14 @@ class ExamResultScreen extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 16,
+            style: TextStyle(
+              fontSize: fontSize ?? (value.contains('\n') ? 13 : 16),
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
+              height: 1.25,
             ),
           ),
         ],

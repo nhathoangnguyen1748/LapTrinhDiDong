@@ -23,7 +23,6 @@ class _DiscoveryRadarScreenState extends ConsumerState<DiscoveryRadarScreen> {
   final TextEditingController _nameController = TextEditingController(text: 'Nguyễn Văn An');
   final TextEditingController _studentIdController = TextEditingController(text: 'TS-2026-001');
   final TextEditingController _classController = TextEditingController(text: 'CNTT-K18A');
-  final TextEditingController _pinController = TextEditingController(text: '1234');
   bool _isScanning = false;
 
   @override
@@ -47,12 +46,133 @@ class _DiscoveryRadarScreenState extends ConsumerState<DiscoveryRadarScreen> {
     _nameController.dispose();
     _studentIdController.dispose();
     _classController.dispose();
-    _pinController.dispose();
     BleCentralService.instance.stopScan();
     super.dispose();
   }
 
   void _onJoinRoom(DiscoveredExamRoom room) {
+    final pinTextController = TextEditingController();
+    String? pinError;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            backgroundColor: AppColors.backgroundSecondary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(color: AppColors.glassBorder),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.pin_rounded, color: AppColors.primary, size: 22),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    room.name,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Vui lòng nhập mã PIN do Giám thị cung cấp để tham gia phòng thi:',
+                  style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: pinTextController,
+                  autofocus: true,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  maxLength: 8,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 4,
+                    color: AppColors.primaryLight,
+                  ),
+                  decoration: InputDecoration(
+                    counterText: '',
+                    hintText: 'VD: 1234',
+                    hintStyle: TextStyle(
+                      fontSize: 16,
+                      letterSpacing: 2,
+                      color: AppColors.textMuted.withOpacity(0.5),
+                    ),
+                    errorText: pinError,
+                    filled: true,
+                    fillColor: AppColors.surfaceCard,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.glassBorder),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                    ),
+                  ),
+                  onSubmitted: (_) {
+                    final enteredPin = pinTextController.text.trim();
+                    if (enteredPin.isEmpty) {
+                      setDialogState(() => pinError = 'Vui lòng nhập mã PIN');
+                      return;
+                    }
+                    Navigator.pop(dialogCtx);
+                    _proceedToDownloadScreen(room, enteredPin);
+                  },
+                ),
+              ],
+            ),
+            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: const Text('HỦY', style: TextStyle(color: AppColors.textMuted, fontWeight: FontWeight.bold)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                ),
+                onPressed: () {
+                  final enteredPin = pinTextController.text.trim();
+                  if (enteredPin.isEmpty) {
+                    setDialogState(() => pinError = 'Vui lòng nhập mã PIN');
+                    return;
+                  }
+                  Navigator.pop(dialogCtx);
+                  _proceedToDownloadScreen(room, enteredPin);
+                },
+                child: const Text('VÀO PHÒNG', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _proceedToDownloadScreen(DiscoveredExamRoom room, String pin) {
     _stopScanning();
     Navigator.push(
       context,
@@ -68,9 +188,7 @@ class _DiscoveryRadarScreenState extends ConsumerState<DiscoveryRadarScreen> {
           classroom: _classController.text.trim().isNotEmpty
               ? _classController.text.trim()
               : 'CNTT-K18A',
-          roomPin: _pinController.text.trim().isNotEmpty
-              ? _pinController.text.trim()
-              : '1234',
+          roomPin: pin,
         ),
       ),
     );
@@ -99,7 +217,7 @@ class _DiscoveryRadarScreenState extends ConsumerState<DiscoveryRadarScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Student identity inputs (Họ tên, SBD, Lớp, PIN)
+            // Student identity inputs (Họ tên, SBD, Lớp)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
               child: GlassCard(
@@ -138,39 +256,16 @@ class _DiscoveryRadarScreenState extends ConsumerState<DiscoveryRadarScreen> {
                         ),
                       ],
                     ),
-                    Divider(color: AppColors.glassBorder.withOpacity(0.5), height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: TextField(
-                            controller: _classController,
-                            style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
-                            decoration: const InputDecoration(
-                              labelText: 'Lớp học (VD: CNTT-K18A)',
-                              labelStyle: TextStyle(fontSize: 11, color: AppColors.textMuted),
-                              border: InputBorder.none,
-                              isDense: true,
-                            ),
-                          ),
-                        ),
-                        Container(width: 1, height: 26, color: AppColors.glassBorder),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          flex: 2,
-                          child: TextField(
-                            controller: _pinController,
-                            keyboardType: TextInputType.number,
-                            style: const TextStyle(fontSize: 13, color: AppColors.secondary, fontWeight: FontWeight.bold),
-                            decoration: const InputDecoration(
-                              labelText: 'Mã PIN phòng',
-                              labelStyle: TextStyle(fontSize: 11, color: AppColors.textMuted),
-                              border: InputBorder.none,
-                              isDense: true,
-                            ),
-                          ),
-                        ),
-                      ],
+                    Divider(color: AppColors.glassBorder.withOpacity(0.5), height: 10),
+                    TextField(
+                      controller: _classController,
+                      style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
+                      decoration: const InputDecoration(
+                        labelText: 'Lớp học (VD: CNTT-K18A)',
+                        labelStyle: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                        border: InputBorder.none,
+                        isDense: true,
+                      ),
                     ),
                   ],
                 ),

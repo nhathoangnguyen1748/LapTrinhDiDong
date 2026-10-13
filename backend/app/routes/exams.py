@@ -1,8 +1,8 @@
 import io
 import json
 import datetime
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 import pandas as pd
@@ -73,6 +73,115 @@ def create_exam(
         duration_seconds=exam_in.duration_seconds,
         rssi_threshold=exam_in.rssi_threshold,
         room_pin=exam_in.room_pin or "1234",
+        questions_json=json.dumps(questions_data, ensure_ascii=False),
+        created_by_user_id=current_user.id,
+    )
+    db.add(new_exam)
+    db.commit()
+    db.refresh(new_exam)
+
+    return ExamOut(
+        id=new_exam.id,
+        title=new_exam.title,
+        duration_seconds=new_exam.duration_seconds,
+        rssi_threshold=new_exam.rssi_threshold,
+        room_pin=new_exam.room_pin,
+        question_count=len(questions_data),
+        created_at=new_exam.created_at,
+    )
+
+
+@router.post("/upload-excel", response_model=ExamOut, status_code=status.HTTP_201_CREATED)
+async def upload_exam_excel(
+    file: UploadFile = File(...),
+    exam_id: str = Form(...),
+    title: str = Form(...),
+    duration_seconds: int = Form(1200),
+    room_pin: str = Form("1234"),
+    rssi_threshold: int = Form(-80),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Tạo đề thi mới từ file Excel (.xlsx) tải lên"""
+    existing = db.query(Exam).filter(Exam.id == exam_id).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Mã đề thi '{exam_id}' đã tồn tại trong hệ thống."
+        )
+
+    try:
+        content = await file.read()
+        df = pd.read_excel(io.BytesIO(content))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Không thể đọc file Excel: {str(e)}"
+        )
+
+    if df.empty:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File Excel rỗng, không chứa dữ liệu câu hỏi."
+        )
+
+    questions_data = []
+    # Kiểm tra số cột
+    num_cols = len(df.columns)
+    for idx, row in df.iterrows():
+        # Nếu có từ 7 cột trở lên: [STT, Câu hỏi, A, B, C, D, Đáp án đúng]
+        if num_cols >= 7:
+            q_text = str(row.iloc[1]).strip() if pd.notna(row.iloc[1]) else ""
+            opt_a = str(row.iloc[2]).strip() if pd.notna(row.iloc[2]) else "Phương án A"
+            opt_b = str(row.iloc[3]).strip() if pd.notna(row.iloc[3]) else "Phương án B"
+            opt_c = str(row.iloc[4]).strip() if pd.notna(row.iloc[4]) else "Phương án C"
+            opt_d = str(row.iloc[5]).strip() if pd.notna(row.iloc[5]) else "Phương án D"
+            ans = str(row.iloc[6]).strip().upper() if pd.notna(row.iloc[6]) else "A"
+        elif num_cols >= 6:
+            # 6 cột: [Câu hỏi, A, B, C, D, Đáp án đúng]
+            q_text = str(row.iloc[0]).strip() if pd.notna(row.iloc[0]) else ""
+            opt_a = str(row.iloc[1]).strip() if pd.notna(row.iloc[1]) else "Phương án A"
+            opt_b = str(row.iloc[2]).strip() if pd.notna(row.iloc[2]) else "Phương án B"
+            opt_c = str(row.iloc[3]).strip() if pd.notna(row.iloc[3]) else "Phương án C"
+            opt_d = str(row.iloc[4]).strip() if pd.notna(row.iloc[4]) else "Phương án D"
+            ans = str(row.iloc[5]).strip().upper() if pd.notna(row.iloc[5]) else "A"
+        else:
+            continue
+
+        if not q_text or q_text.lower() in ["nan", "none"]:
+            continue
+
+        # Chuẩn hóa đáp án đúng
+        correct_opt = "A"
+        for letter in ["A", "B", "C", "D"]:
+            if letter in ans:
+                correct_opt = letter
+                break
+
+        questions_data.append({
+            "id": len(questions_data) + 1,
+            "content": q_text,
+            "options": [
+                {"id": "A", "text": opt_a},
+                {"id": "B", "text": opt_b},
+                {"id": "C", "text": opt_c},
+                {"id": "D", "text": opt_d},
+            ],
+            "correct_option_id": correct_opt,
+        })
+
+    if not questions_data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Không tìm thấy câu hỏi hợp lệ nào trong file Excel."
+        )
+
+    new_exam = Exam(
+        id=exam_id,
+        title=title,
+        duration_seconds=duration_seconds,
+        rssi_threshold=rssi_threshold,
+        room_pin=room_pin or "1234",
         questions_json=json.dumps(questions_data, ensure_ascii=False),
         created_by_user_id=current_user.id,
     )
@@ -312,3 +421,25 @@ def export_excel(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+
+@router.delete("/{exam_id}", status_code=status.HTTP_200_OK)
+def delete_exam(
+    exam_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Xóa đề thi khỏi hệ thống"""
+    exam = db.query(Exam).filter(Exam.id == exam_id).first()
+    if not exam:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đề thi cần xóa.")
+
+    if exam.created_by_user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Bạn không có quyền xóa đề thi này.")
+
+    db.query(Submission).filter(Submission.exam_id == exam_id).delete()
+    db.query(ExamSession).filter(ExamSession.exam_id == exam_id).delete()
+    db.delete(exam)
+    db.commit()
+    return {"message": f"Đã xóa đề thi '{exam_id}' thành công"}
+

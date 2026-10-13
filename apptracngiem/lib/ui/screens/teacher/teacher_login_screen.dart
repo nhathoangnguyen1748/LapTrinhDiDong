@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
@@ -36,12 +35,12 @@ class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
     final name = _nameController.text.trim();
 
     if (email.isEmpty || password.isEmpty) {
-      _showToast('Vui lòng điền đầy đủ Email và Mật khẩu', isError: true);
+      _showToast('Vui lòng điền Email và Mật khẩu', isError: true);
       return;
     }
 
     if (_isRegisterMode && name.isEmpty) {
-      _showToast('Vui lòng nhập Họ và tên của Giảng viên', isError: true);
+      _showToast('Vui lòng nhập Họ và tên', isError: true);
       return;
     }
 
@@ -83,36 +82,21 @@ class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surfaceDark,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [
-            Icon(Icons.dns_rounded, color: AppColors.primary),
-            SizedBox(width: 8),
-            Text('Cấu hình Backend API', style: TextStyle(fontSize: 16)),
-          ],
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Cấu hình Server API', style: TextStyle(fontSize: 16)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'Địa chỉ máy chủ FastAPI (Local LAN hoặc Cloud):',
-              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 10),
             TextField(
               controller: urlController,
               style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
               decoration: const InputDecoration(
+                labelText: 'Địa chỉ Server (FastAPI)',
                 hintText: 'http://192.168.1.15:8000/api/v1',
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Gợi ý:\n• Máy ảo Android: http://10.0.2.2:8000/api/v1\n• Máy thật cùng Wi-Fi: http://<IP_MAY_TINH>:8000/api/v1\n• Desktop Windows: http://localhost:8000/api/v1',
-              style: TextStyle(fontSize: 11, color: AppColors.textMuted, height: 1.4),
             ),
           ],
         ),
@@ -129,11 +113,11 @@ class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
                 Navigator.pop(ctx);
               }
               if (mounted) {
-                _showToast('Đã cập nhật máy chủ: ${ApiService.instance.baseUrl}');
+                _showToast('Đã lưu máy chủ: ${ApiService.instance.baseUrl}');
                 setState(() {});
               }
             },
-            child: const Text('Lưu máy chủ', style: TextStyle(color: Colors.white)),
+            child: const Text('Lưu', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -146,10 +130,10 @@ class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Giảng Viên Đăng Nhập'),
+        title: const Text('Cổng Giảng Viên'),
         actions: [
           IconButton(
-            tooltip: 'Cài đặt IP Máy chủ Backend',
+            tooltip: 'Cài đặt IP Server',
             icon: const Icon(Icons.settings_ethernet_rounded),
             onPressed: _showServerConfigDialog,
           ),
@@ -157,138 +141,126 @@ class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
 
-              // Hero Badge
               Center(
                 child: Container(
-                  width: 74,
-                  height: 74,
+                  width: 64,
+                  height: 64,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: AppColors.emeraldGradient,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.secondary.withOpacity(0.35),
-                        blurRadius: 20,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
                   ),
-                  child: const Icon(Icons.account_balance_rounded, color: Colors.white, size: 36),
+                  child: const Icon(Icons.school_rounded, color: Colors.white, size: 32),
                 ),
-              ).animate().scale(duration: 500.ms).fadeIn(),
+              ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
               Center(
                 child: Text(
-                  _isRegisterMode ? 'Đăng Ký Tài Khoản Giảng Viên' : 'Cổng Quản Trị Giảng Viên',
+                  _isRegisterMode ? 'Đăng Ký Giảng Viên' : 'Đăng Nhập Giảng Viên',
                   style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
                     color: AppColors.textPrimary,
                   ),
                 ),
               ),
 
-              const SizedBox(height: 4),
+              const SizedBox(height: 16),
 
-              const Center(
-                child: Text(
-                  'Quản lý ngân hàng đề & Đồng bộ kết quả ca thi với Cloud',
-                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Server Indicator Pill
-              GestureDetector(
-                onTap: _showServerConfigDialog,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceCard,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.glassBorder),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.cloud_done_rounded, size: 14, color: AppColors.secondary),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          'Server: ${ApiService.instance.baseUrl}',
-                          style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
-                          overflow: TextOverflow.ellipsis,
+              // Server Indicator
+              Center(
+                child: InkWell(
+                  onTap: _showServerConfigDialog,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceCard,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.glassBorder),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.cloud_done_rounded, size: 12, color: AppColors.secondary),
+                        const SizedBox(width: 6),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 220),
+                          child: Text(
+                            ApiService.instance.baseUrl,
+                            style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.edit_rounded, size: 12, color: AppColors.textMuted),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
 
-              // Form Container
+              // Form
               GlassCard(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
                     if (_isRegisterMode) ...[
                       TextField(
                         controller: _nameController,
-                        style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
+                        style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
                         decoration: InputDecoration(
                           labelText: 'Họ và tên Giảng viên',
-                          prefixIcon: const Icon(Icons.badge_rounded, color: AppColors.primary),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          prefixIcon: const Icon(Icons.badge_rounded, size: 20),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          isDense: true,
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                     ],
 
                     TextField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
-                      style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
+                      style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
                       decoration: InputDecoration(
-                        labelText: 'Email Giảng viên',
-                        prefixIcon: const Icon(Icons.email_rounded, color: AppColors.primary),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        labelText: 'Email',
+                        prefixIcon: const Icon(Icons.email_rounded, size: 20),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        isDense: true,
                       ),
                     ),
 
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
 
                     TextField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
-                      style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
+                      style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
                       decoration: InputDecoration(
                         labelText: 'Mật khẩu',
-                        prefixIcon: const Icon(Icons.lock_rounded, color: AppColors.primary),
+                        prefixIcon: const Icon(Icons.lock_rounded, size: 20),
                         suffixIcon: IconButton(
                           icon: Icon(
                             _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                            size: 18,
                             color: AppColors.textMuted,
                           ),
                           onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                         ),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        isDense: true,
                       ),
                     ),
 
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16),
 
                     NeumorphicButton(
                       gradient: AppColors.emeraldGradient,
@@ -300,15 +272,15 @@ class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
                           Icon(
                             _isRegisterMode ? Icons.person_add_rounded : Icons.login_rounded,
                             color: Colors.white,
-                            size: 20,
+                            size: 18,
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 6),
                           Text(
-                            _isRegisterMode ? 'ĐĂNG KÝ TÀI KHOẢN' : 'ĐĂNG NHẬP HỆ THỐNG',
+                            _isRegisterMode ? 'ĐĂNG KÝ' : 'ĐĂNG NHẬP',
                             style: const TextStyle(
                               color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
                             ),
                           ),
                         ],
@@ -318,36 +290,33 @@ class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
                 ),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
 
-              // Switch Login / Register
               TextButton(
                 onPressed: () {
                   setState(() => _isRegisterMode = !_isRegisterMode);
                 },
                 child: Text(
                   _isRegisterMode
-                      ? 'Đã có tài khoản? Đăng nhập ngay'
-                      : 'Chưa có tài khoản? Đăng ký Giảng viên mới',
-                  style: const TextStyle(color: AppColors.primaryLight, fontSize: 13),
+                      ? 'Đã có tài khoản? Đăng nhập'
+                      : 'Chưa có tài khoản? Đăng ký',
+                  style: const TextStyle(color: AppColors.primaryLight, fontSize: 12),
                 ),
               ),
 
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
 
-              // Quick Fill Helper for Demo / Testing
+              // Demo fill button
               OutlinedButton.icon(
-                icon: const Icon(Icons.flash_on_rounded, color: AppColors.rssiWarning, size: 16),
-                label: const Flexible(
-                  child: Text(
-                    'Điền tài khoản mẫu Demo (1 chạm)',
-                    style: TextStyle(fontSize: 11, color: AppColors.rssiWarning),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                icon: const Icon(Icons.flash_on_rounded, color: AppColors.rssiWarning, size: 14),
+                label: const Text(
+                  'Điền tài khoản Demo',
+                  style: TextStyle(fontSize: 11, color: AppColors.rssiWarning),
                 ),
                 style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: AppColors.rssiWarning.withOpacity(0.4)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  side: BorderSide(color: AppColors.rssiWarning.withOpacity(0.3)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                 ),
                 onPressed: () {
                   setState(() {

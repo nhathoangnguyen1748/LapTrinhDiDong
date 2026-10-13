@@ -42,10 +42,12 @@ class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
   ExamModel? _downloadedExam;
   StreamSubscription<ExamModel>? _examSubscription;
   StreamSubscription<bool>? _masterStartSubscription;
+  late String _enteredPin;
 
   @override
   void initState() {
     super.initState();
+    _enteredPin = widget.roomPin;
     _startConnectionAndDownload();
   }
 
@@ -76,11 +78,11 @@ class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
     _examSubscription = BleCentralService.instance.completedExamStream.listen((exam) async {
       if (mounted) {
         // Validate PIN
-        if (exam.roomPin.isNotEmpty && exam.roomPin != widget.roomPin) {
+        if (exam.roomPin.isNotEmpty && exam.roomPin != _enteredPin) {
           setState(() {
             _downloadedExam = exam;
             _isPinError = true;
-            _statusMessage = 'SAI MÃ PIN PHÒNG THI! Bạn đã nhập: "${widget.roomPin}".';
+            _statusMessage = 'Mã PIN không chính xác! Vui lòng nhập lại.';
           });
           return;
         }
@@ -97,7 +99,7 @@ class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
           studentId: widget.studentId,
           studentName: widget.studentName,
           classroom: widget.classroom,
-          roomPin: widget.roomPin,
+          roomPin: _enteredPin,
           totalQuestions: exam.questions.length,
         );
 
@@ -141,6 +143,107 @@ class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
           exam: _downloadedExam!,
           classroom: widget.classroom,
         ),
+      ),
+    );
+  }
+
+  void _promptReenterPin() {
+    final pinCtrl = TextEditingController();
+    String? err;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            backgroundColor: AppColors.backgroundSecondary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(color: AppColors.glassBorder),
+            ),
+            title: const Row(
+              children: [
+                Icon(Icons.lock_reset_rounded, color: AppColors.primary, size: 24),
+                SizedBox(width: 10),
+                Text('Nhập Lại Mã PIN', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Vui lòng nhập đúng mã PIN phòng thi:',
+                  style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: pinCtrl,
+                  autofocus: true,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  maxLength: 8,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 4,
+                    color: AppColors.primaryLight,
+                  ),
+                  decoration: InputDecoration(
+                    counterText: '',
+                    hintText: 'VD: 1234',
+                    errorText: err,
+                    filled: true,
+                    fillColor: AppColors.surfaceCard,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: const Text('HỦY', style: TextStyle(color: AppColors.textMuted)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () async {
+                  final newPin = pinCtrl.text.trim();
+                  if (newPin.isEmpty) {
+                    setDialogState(() => err = 'Vui lòng nhập mã PIN');
+                    return;
+                  }
+                  if (_downloadedExam != null && _downloadedExam!.roomPin.isNotEmpty && _downloadedExam!.roomPin != newPin) {
+                    setDialogState(() => err = 'Mã PIN vẫn chưa đúng');
+                    return;
+                  }
+                  Navigator.pop(dialogCtx);
+                  setState(() {
+                    _enteredPin = newPin;
+                    _isPinError = false;
+                    _isWaitingForMaster = true;
+                    _statusMessage = 'Mã PIN chính xác! Đang chờ Giám thị phát lệnh...';
+                  });
+                  if (_downloadedExam != null) {
+                    await BleCentralService.instance.joinExamRoom(
+                      studentId: widget.studentId,
+                      studentName: widget.studentName,
+                      classroom: widget.classroom,
+                      roomPin: _enteredPin,
+                      totalQuestions: _downloadedExam!.questions.length,
+                    );
+                  }
+                },
+                child: const Text('XÁC NHẬN'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -368,15 +471,31 @@ class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(color: AppColors.rssiCritical),
                           ),
-                          child: const Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Icon(Icons.gpp_bad_rounded, color: AppColors.rssiCritical, size: 28),
-                              SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  'MÃ PIN PHÒNG THI KHÔNG HỢP LỆ!\nVui lòng quay lại màn hình trước và nhập đúng mã PIN được Giám thị cung cấp.',
-                                  style: TextStyle(color: AppColors.rssiCritical, fontSize: 12, fontWeight: FontWeight.bold),
+                              const Row(
+                                children: [
+                                  Icon(Icons.gpp_bad_rounded, color: AppColors.rssiCritical, size: 28),
+                                  SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'MÃ PIN PHÒNG THI CHƯA CHÍNH XÁC!\nVui lòng nhập lại mã PIN do Giám thị cung cấp.',
+                                      style: TextStyle(color: AppColors.rssiCritical, fontSize: 12, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                 ),
+                                icon: const Icon(Icons.key_rounded, size: 18),
+                                label: const Text('NHẬP LẠI MÃ PIN', style: TextStyle(fontWeight: FontWeight.bold)),
+                                onPressed: _promptReenterPin,
                               ),
                             ],
                           ),
@@ -414,10 +533,10 @@ class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
               // Action Button
               NeumorphicButton(
                 onPressed: _isPinError
-                    ? () => Navigator.pop(context)
+                    ? _promptReenterPin
                     : (_downloadedExam != null ? _onStartExam : null),
                 gradient: _isPinError
-                    ? AppColors.criticalGradient
+                    ? AppColors.primaryGradient
                     : (_downloadedExam != null ? AppColors.emeraldGradient : null),
                 isLoading: _isConnecting || (currentProgress > 0 && currentProgress < 1.0),
                 child: Row(
@@ -425,7 +544,7 @@ class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
                   children: [
                     Icon(
                       _isPinError
-                          ? Icons.arrow_back_rounded
+                          ? Icons.key_rounded
                           : (_downloadedExam != null ? Icons.play_arrow_rounded : Icons.downloading_rounded),
                       color: Colors.white,
                       size: 22,
@@ -433,7 +552,7 @@ class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
                     const SizedBox(width: 8),
                     Text(
                       _isPinError
-                          ? 'QUAY LẠI NHẬP LẠI PIN'
+                          ? 'NHẬP LẠI MÃ PIN'
                           : (_downloadedExam != null ? 'BẮT ĐẦU LÀM BÀI' : 'ĐANG TẢI ĐỀ THI...'),
                       style: const TextStyle(
                         fontSize: 14,
