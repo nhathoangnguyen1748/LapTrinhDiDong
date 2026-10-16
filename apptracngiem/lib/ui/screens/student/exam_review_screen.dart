@@ -111,13 +111,13 @@ class ExamReviewScreen extends StatelessWidget {
                     final isUserPick = studentAnswer == opt.id;
                     final isCorrectOpt = correctAnswer == opt.id;
 
-                    Color optBg = AppColors.surfaceCard;
+                    Color optBg = AppColors.surfaceDark;
                     Color optBorder = AppColors.glassBorder;
                     Color optText = AppColors.textSecondary;
                     Widget? trailingBadge;
 
                     if (isCorrectOpt) {
-                      optBg = AppColors.secondary.withOpacity(0.18);
+                      optBg = AppColors.secondary.withOpacity(0.12);
                       optBorder = AppColors.secondary;
                       optText = AppColors.textPrimary;
                       trailingBadge = const Row(
@@ -136,7 +136,7 @@ class ExamReviewScreen extends StatelessWidget {
                         ],
                       );
                     } else if (isUserPick && !isCorrect) {
-                      optBg = AppColors.rssiCritical.withOpacity(0.18);
+                      optBg = AppColors.rssiCritical.withOpacity(0.12);
                       optBorder = AppColors.rssiCritical;
                       optText = AppColors.textPrimary;
                       trailingBadge = const Row(
@@ -174,14 +174,19 @@ class ExamReviewScreen extends StatelessWidget {
                               shape: BoxShape.circle,
                               color: isUserPick
                                   ? (isCorrect ? AppColors.secondary : AppColors.rssiCritical)
-                                  : (isCorrectOpt ? AppColors.secondary : Colors.white.withOpacity(0.06)),
+                                  : (isCorrectOpt ? AppColors.secondary : Colors.white),
+                              border: Border.all(
+                                color: (isUserPick || isCorrectOpt)
+                                    ? Colors.transparent
+                                    : AppColors.glassBorder,
+                              ),
                             ),
                             child: Text(
                               opt.id,
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
-                                color: (isUserPick || isCorrectOpt) ? Colors.white : AppColors.textSecondary,
+                                color: (isUserPick || isCorrectOpt) ? Colors.white : AppColors.textPrimary,
                               ),
                             ),
                           ),

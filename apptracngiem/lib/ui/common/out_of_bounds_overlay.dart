@@ -27,14 +27,14 @@ class OutOfBoundsOverlay extends ConsumerWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Container(
-          color: Colors.black.withOpacity(0.75),
+          color: Colors.black.withOpacity(0.45),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
           alignment: Alignment.center,
           child: SingleChildScrollView( // Bọc trong ScrollView chống overflow màn hình nhỏ
             child: GlassCard(
               blur: 24,
               borderColor: AppColors.rssiCritical.withOpacity(0.6),
-              color: const Color(0xFF1E1015).withOpacity(0.85),
+              color: AppColors.surfaceCard,
               padding: const EdgeInsets.all(28),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -100,7 +100,7 @@ class OutOfBoundsOverlay extends ConsumerWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
+                      color: AppColors.surfaceDark,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: AppColors.glassBorder),
                     ),
@@ -152,7 +152,7 @@ class OutOfBoundsOverlay extends ConsumerWidget {
           data: SliderThemeData(
             thumbColor: AppColors.primary,
             activeTrackColor: AppColors.primary,
-            inactiveTrackColor: Colors.white.withOpacity(0.1),
+            inactiveTrackColor: AppColors.surfaceDark,
             overlayColor: AppColors.primary.withOpacity(0.2),
             trackHeight: 3,
           ),

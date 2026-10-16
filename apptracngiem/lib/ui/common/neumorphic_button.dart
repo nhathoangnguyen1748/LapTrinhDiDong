@@ -72,7 +72,7 @@ class _NeumorphicButtonState extends State<NeumorphicButton> {
             : AppTheme.neumorphicDecoration(
                 borderRadius: widget.borderRadius,
                 isPressed: _isPressed,
-                surfaceColor: widget.surfaceColor ?? AppColors.surfaceDark,
+                surfaceColor: widget.surfaceColor ?? AppColors.surfaceCard,
                 borderColor: widget.borderColor,
               ),
         child: Center(

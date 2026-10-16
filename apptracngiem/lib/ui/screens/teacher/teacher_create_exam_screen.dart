@@ -187,9 +187,9 @@ class _TeacherCreateExamScreenState extends State<TeacherCreateExamScreen> {
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(8),
-                              color: isSelected ? AppColors.secondary : Colors.white10,
+                              color: isSelected ? AppColors.secondary : AppColors.surfaceDark,
                               border: Border.all(
-                                color: isSelected ? AppColors.secondary : Colors.white24,
+                                color: isSelected ? AppColors.secondary : AppColors.glassBorder,
                                 width: isSelected ? 1.5 : 1.0,
                               ),
                             ),
@@ -296,8 +296,15 @@ class _TeacherCreateExamScreenState extends State<TeacherCreateExamScreen> {
           height: 24,
           alignment: Alignment.center,
           margin: const EdgeInsets.all(10),
-          decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white12),
-          child: Text(optLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppColors.surfaceDark,
+            border: Border.all(color: AppColors.glassBorder),
+          ),
+          child: Text(
+            optLabel,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppColors.textPrimary),
+          ),
         ),
         border: const OutlineInputBorder(),
         isDense: true,

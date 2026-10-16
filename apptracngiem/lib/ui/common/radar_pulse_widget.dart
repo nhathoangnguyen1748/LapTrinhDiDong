@@ -78,7 +78,7 @@ class _RadarPulseWidgetState extends State<RadarPulseWidget>
                   gradient: AppColors.primaryGradient,
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.primary.withOpacity(0.5),
+                      color: AppColors.primary.withOpacity(0.25),
                       blurRadius: 16,
                       spreadRadius: 2,
                     ),
@@ -109,7 +109,7 @@ class _RadarPainter extends CustomPainter {
 
     // Draw static concentric circles
     final ringPaint = Paint()
-      ..color = AppColors.glassBorder.withOpacity(0.15)
+      ..color = AppColors.primary.withOpacity(0.12)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
 

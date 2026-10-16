@@ -64,7 +64,7 @@ class _HomeRoleSelectScreenState extends ConsumerState<HomeRoleSelectScreen> {
               height: 260,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.primary.withOpacity(0.18),
+                color: AppColors.primary.withOpacity(0.08),
               ),
             ),
           ),
@@ -76,7 +76,7 @@ class _HomeRoleSelectScreenState extends ConsumerState<HomeRoleSelectScreen> {
               height: 280,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.secondary.withOpacity(0.15),
+                color: AppColors.secondary.withOpacity(0.06),
               ),
             ),
           ),
@@ -99,9 +99,9 @@ class _HomeRoleSelectScreenState extends ConsumerState<HomeRoleSelectScreen> {
                         gradient: AppColors.primaryGradient,
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.primary.withOpacity(0.4),
-                            blurRadius: 24,
-                            offset: const Offset(0, 8),
+                            color: AppColors.primary.withOpacity(0.25),
+                            blurRadius: 20,
+                            offset: const Offset(0, 6),
                           ),
                         ],
                       ),

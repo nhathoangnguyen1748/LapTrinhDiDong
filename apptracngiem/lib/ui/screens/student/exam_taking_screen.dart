@@ -262,8 +262,8 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
                           color: isFlagged
-                              ? AppColors.rssiWarning.withOpacity(0.18)
-                              : Colors.white.withOpacity(0.06),
+                              ? AppColors.rssiWarning.withOpacity(0.15)
+                              : AppColors.surfaceDark,
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
                             color: isFlagged ? AppColors.rssiWarning : AppColors.glassBorder,
@@ -319,7 +319,7 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
                   ref.read(examSessionProvider.notifier).selectAnswer(question.id, opt.id);
                 },
                 color: isSelected
-                    ? AppColors.primary.withOpacity(0.18)
+                    ? AppColors.primary.withOpacity(0.08)
                     : AppColors.surfaceCard,
                 borderColor: isSelected
                     ? AppColors.primary
@@ -333,9 +333,9 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: isSelected ? AppColors.primary : Colors.white.withOpacity(0.08),
+                        color: isSelected ? AppColors.primary : AppColors.surfaceDark,
                         border: Border.all(
-                          color: isSelected ? AppColors.primaryLight : AppColors.glassBorder,
+                          color: isSelected ? AppColors.primary : AppColors.glassBorder,
                         ),
                       ),
                       child: Text(
@@ -343,7 +343,7 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
-                          color: isSelected ? Colors.white : AppColors.textSecondary,
+                          color: isSelected ? Colors.white : AppColors.textPrimary,
                         ),
                       ),
                     ),
@@ -498,10 +498,10 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
                                   shape: BoxShape.circle,
                                   color: isCurrent
                                       ? AppColors.primary
-                                      : (isDone ? AppColors.secondary.withOpacity(0.25) : AppColors.surfaceCard),
+                                      : (isDone ? AppColors.secondary.withOpacity(0.15) : AppColors.surfaceDark),
                                   border: Border.all(
                                     color: isCurrent
-                                        ? AppColors.primaryLight
+                                        ? AppColors.primary
                                         : (isDone ? AppColors.secondary : AppColors.glassBorder),
                                     width: isCurrent ? 2 : 1,
                                   ),
@@ -510,7 +510,9 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
                                   '${i + 1}',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: isCurrent ? Colors.white : AppColors.textPrimary,
+                                    color: isCurrent
+                                        ? Colors.white
+                                        : (isDone ? AppColors.secondary : AppColors.textPrimary),
                                   ),
                                 ),
                               ),
