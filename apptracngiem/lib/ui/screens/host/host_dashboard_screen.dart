@@ -645,7 +645,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen>
                               borderRadius: BorderRadius.circular(4),
                               child: LinearProgressIndicator(
                                 value: progress,
-                                backgroundColor: Colors.white10,
+                                backgroundColor: AppColors.glassBorder.withOpacity(0.5),
                                 valueColor: AlwaysStoppedAnimation<Color>(statusColor),
                                 minHeight: 5,
                               ),

@@ -77,12 +77,14 @@ class _NeumorphicButtonState extends State<NeumorphicButton> {
               ),
         child: Center(
           child: widget.isLoading
-              ? const SizedBox(
+              ? SizedBox(
                   width: 22,
                   height: 22,
                   child: CircularProgressIndicator(
                     strokeWidth: 2.5,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      widget.gradient != null ? Colors.white : AppColors.primary,
+                    ),
                   ),
                 )
               : widget.child,

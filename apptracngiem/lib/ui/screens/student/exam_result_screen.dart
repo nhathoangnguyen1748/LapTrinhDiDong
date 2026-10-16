@@ -103,7 +103,7 @@ class ExamResultScreen extends StatelessWidget {
                         child: CircularProgressIndicator(
                           value: scoreRatio,
                           strokeWidth: 12,
-                          backgroundColor: Colors.white.withOpacity(0.06),
+                          backgroundColor: AppColors.glassBorder.withOpacity(0.5),
                           valueColor: AlwaysStoppedAnimation<Color>(
                             scoreRatio >= 0.5 ? AppColors.secondary : AppColors.rssiCritical,
                           ),

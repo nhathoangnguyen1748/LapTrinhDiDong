@@ -110,7 +110,7 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
     return Positioned.fill(
       child: IgnorePointer(
         child: Opacity(
-          opacity: 0.038,
+          opacity: 0.045,
           child: LayoutBuilder(
             builder: (context, constraints) {
               return Transform.rotate(
@@ -129,7 +129,7 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w900,
-                            color: Colors.white,
+                            color: AppColors.textPrimary,
                             letterSpacing: 1.2,
                           ),
                         ),
@@ -276,9 +276,9 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
             borderColor = AppColors.primaryLight;
             textColor = Colors.white;
           } else if (isAnswered) {
-            bgColor = AppColors.secondary.withOpacity(0.2);
+            bgColor = AppColors.secondary.withOpacity(0.15);
             borderColor = AppColors.secondary;
-            textColor = AppColors.secondaryLight;
+            textColor = AppColors.secondary;
           } else {
             bgColor = AppColors.surfaceCard;
             borderColor = AppColors.glassBorder;
@@ -415,9 +415,9 @@ class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: isSelected ? AppColors.primary : Colors.white.withOpacity(0.08),
+                        color: isSelected ? AppColors.primary : AppColors.background,
                         border: Border.all(
-                          color: isSelected ? AppColors.primaryLight : AppColors.glassBorder,
+                          color: isSelected ? AppColors.primary : AppColors.glassBorder,
                         ),
                       ),
                       child: Text(

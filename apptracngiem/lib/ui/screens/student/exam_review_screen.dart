@@ -174,7 +174,10 @@ class ExamReviewScreen extends StatelessWidget {
                               shape: BoxShape.circle,
                               color: isUserPick
                                   ? (isCorrect ? AppColors.secondary : AppColors.rssiCritical)
-                                  : (isCorrectOpt ? AppColors.secondary : Colors.white.withOpacity(0.06)),
+                                  : (isCorrectOpt ? AppColors.secondary : AppColors.background),
+                              border: (isUserPick || isCorrectOpt)
+                                  ? null
+                                  : Border.all(color: AppColors.glassBorder),
                             ),
                             child: Text(
                               opt.id,

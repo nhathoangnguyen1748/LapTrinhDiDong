@@ -7,13 +7,13 @@ import 'ui/screens/home_role_select_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Set immersive status bar and navigation bar styling
+  // Cấu hình thanh trạng thái sáng/tối tối ưu cho giao diện Màu Trắng (Light Theme)
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Color(0xFF0B0F19),
-      systemNavigationBarIconBrightness: Brightness.light,
+      statusBarIconBrightness: Brightness.dark,
+      systemNavigationBarColor: Color(0xFFF8FAFC),
+      systemNavigationBarIconBrightness: Brightness.dark,
     ),
   );
 
@@ -32,7 +32,7 @@ class LocalQuizBleApp extends StatelessWidget {
     return MaterialApp(
       title: 'LocalQuiz BLE',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
+      theme: AppTheme.lightTheme,
       builder: (context, child) {
         final mediaQueryData = MediaQuery.of(context);
         final clampedScaler = mediaQueryData.textScaler.clamp(

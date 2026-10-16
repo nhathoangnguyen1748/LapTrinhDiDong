@@ -236,7 +236,7 @@ class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
                               child: CircularProgressIndicator(
                                 value: currentProgress > 0 ? currentProgress : null,
                                 strokeWidth: 8,
-                                backgroundColor: Colors.white.withOpacity(0.08),
+                                backgroundColor: AppColors.glassBorder.withOpacity(0.5),
                                 valueColor: AlwaysStoppedAnimation<Color>(
                                   _downloadedExam != null ? AppColors.secondary : AppColors.primary,
                                 ),

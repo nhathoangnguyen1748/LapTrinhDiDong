@@ -109,9 +109,9 @@ class _RadarPainter extends CustomPainter {
 
     // Draw static concentric circles
     final ringPaint = Paint()
-      ..color = AppColors.glassBorder.withOpacity(0.15)
+      ..color = AppColors.glassBorder
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
+      ..strokeWidth = 1.2;
 
     for (int i = 1; i <= 3; i++) {
       canvas.drawCircle(center, maxRadius * (i / 3), ringPaint);

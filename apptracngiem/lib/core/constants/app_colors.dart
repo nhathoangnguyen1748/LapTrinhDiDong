@@ -1,42 +1,43 @@
 import 'package:flutter/material.dart';
 
+/// Bảng màu giao diện Sáng / Trắng (Light Mode Theme) hiện đại, tinh tế và tương phản cao
 class AppColors {
-  // Backgrounds
-  static const Color background = Color(0xFF0B0F19);
-  static const Color backgroundSecondary = Color(0xFF111827);
-  static const Color surfaceDark = Color(0xFF1E293B);
-  static const Color surfaceCard = Color(0xFF182234);
+  // Light Backgrounds
+  static const Color background = Color(0xFFF8FAFC); // Slate-50: Trắng ánh xám dịu mắt, cao cấp
+  static const Color backgroundSecondary = Color(0xFFFFFFFF); // Trắng tinh khiết cho thanh điều hướng, bottom bar
+  static const Color surfaceDark = Color(0xFFFFFFFF); // Nền trắng sạch cho Modals & Dialogs
+  static const Color surfaceCard = Color(0xFFFFFFFF); // Thẻ card trắng tinh tế
 
-  // Glassmorphism
-  static Color glassSurface = const Color(0xFF1E293B).withOpacity(0.55);
-  static Color glassBorder = Colors.white.withOpacity(0.12);
-  static Color glassBorderBright = const Color(0xFF06B6D4).withOpacity(0.4);
+  // Glassmorphism & Viền trong suốt hiện đại
+  static Color glassSurface = const Color(0xFFFFFFFF).withOpacity(0.92);
+  static Color glassBorder = const Color(0xFFE2E8F0); // Slate-200: Viền sắc nét, chống chìm card trên nền trắng
+  static Color glassBorderBright = const Color(0xFF0284C7).withOpacity(0.35);
 
-  // Neumorphism Shadows
-  static const Color neuDarkShadow = Color(0xFF05070D);
-  static const Color neuLightShadow = Color(0x18FFFFFF);
+  // Hiệu ứng đổ bóng Neumorphism dịu mắt (Light Shadow)
+  static const Color neuDarkShadow = Color(0x140F172A); // Đổ bóng slate 8%
+  static const Color neuLightShadow = Color(0xFFFFFFFF); // Viền sáng trắng
 
-  // Accent Colors
-  static const Color primary = Color(0xFF06B6D4); // Cyan
-  static const Color primaryLight = Color(0xFF67E8F9);
-  static const Color secondary = Color(0xFF10B981); // Emerald Green
-  static const Color secondaryLight = Color(0xFF34D399);
-  static const Color accentIndigo = Color(0xFF6366F1);
+  // Màu thương hiệu chính (High-contrast Accent Colors)
+  static const Color primary = Color(0xFF0284C7); // Sky-600 / Ocean Blue (Đậm, nổi bật trên nền trắng)
+  static const Color primaryLight = Color(0xFF38BDF8); // Sky-400
+  static const Color secondary = Color(0xFF059669); // Emerald-600 (Xanh ngọc lục bảo sắc nét)
+  static const Color secondaryLight = Color(0xFF10B981); // Emerald-500
+  static const Color accentIndigo = Color(0xFF4F46E5); // Indigo-600
 
-  // Status & RSSI Colors
-  static const Color rssiGood = Color(0xFF10B981); // Emerald
-  static const Color rssiWarning = Color(0xFFF59E0B); // Amber
-  static const Color rssiCritical = Color(0xFFEF4444); // Crimson / Red
-  static const Color rssiDisabled = Color(0xFF64748B);
+  // Trạng thái & Đo mức sóng RSSI Geofencing
+  static const Color rssiGood = Color(0xFF059669); // Emerald
+  static const Color rssiWarning = Color(0xFFD97706); // Amber-600
+  static const Color rssiCritical = Color(0xFFDC2626); // Red-600
+  static const Color rssiDisabled = Color(0xFF94A3B8); // Slate-400
 
-  // Text Colors
-  static const Color textPrimary = Color(0xFFF8FAFC);
-  static const Color textSecondary = Color(0xFF94A3B8);
-  static const Color textMuted = Color(0xFF64748B);
+  // Màu chữ (Typography) tương phản cao trên nền trắng
+  static const Color textPrimary = Color(0xFF0F172A); // Slate-900: Đen ánh xanh than, cực kỳ rõ nét
+  static const Color textSecondary = Color(0xFF475569); // Slate-600: Chữ phụ, dễ đọc
+  static const Color textMuted = Color(0xFF94A3B8); // Slate-400: Gợi ý, chú thích
 
-  // Gradients
+  // Các dải màu Gradient rực rỡ, trang nhã
   static const LinearGradient primaryGradient = LinearGradient(
-    colors: [Color(0xFF06B6D4), Color(0xFF3B82F6)],
+    colors: [Color(0xFF0284C7), Color(0xFF2563EB)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -54,15 +55,15 @@ class AppColors {
   );
 
   static const LinearGradient criticalGradient = LinearGradient(
-    colors: [Color(0xFFEF4444), Color(0xFFB91C1C)],
+    colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
   static const LinearGradient glassGradient = LinearGradient(
     colors: [
-      Color(0x26FFFFFF),
-      Color(0x0AFFFFFF),
+      Color(0xFFFFFFFF),
+      Color(0xFFF8FAFC),
     ],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,

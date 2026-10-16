@@ -109,9 +109,16 @@ class _TeacherCreateExamScreenState extends State<TeacherCreateExamScreen> {
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: isSelected ? AppColors.secondary : Colors.white12,
+                            color: isSelected ? AppColors.secondary : AppColors.glassBorder.withOpacity(0.5),
                           ),
-                          child: Text(opt, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          child: Text(
+                            opt,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: isSelected ? Colors.white : AppColors.textSecondary,
+                            ),
+                          ),
                         ),
                       );
                     }),
@@ -166,8 +173,8 @@ class _TeacherCreateExamScreenState extends State<TeacherCreateExamScreen> {
           height: 24,
           alignment: Alignment.center,
           margin: const EdgeInsets.all(10),
-          decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white12),
-          child: Text(optLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+          decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.glassBorder.withOpacity(0.5)),
+          child: Text(optLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppColors.textSecondary)),
         ),
         border: const OutlineInputBorder(),
         isDense: true,
