@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/storage/local_exam_storage.dart';
 import '../../core/utils/permission_helper.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/exam_session_provider.dart';
 import '../common/glass_card.dart';
+import 'host/host_dashboard_screen.dart';
 import 'student/discovery_radar_screen.dart';
+import 'student/exam_taking_screen.dart';
 import 'teacher/teacher_login_screen.dart';
 import 'teacher/teacher_exam_list_screen.dart';
 
@@ -23,6 +27,97 @@ class _HomeRoleSelectScreenState extends ConsumerState<HomeRoleSelectScreen> {
   void initState() {
     super.initState();
     _checkPermissions();
+    _checkActiveSessions();
+  }
+
+  Future<void> _checkActiveSessions() async {
+    // 1. Kiểm tra phiên thi của Thí sinh (nếu thoát app khi đang làm bài)
+    final studentSession = await LocalExamStorage.getActiveStudentSession();
+    if (studentSession != null && mounted) {
+      final now = DateTime.now();
+      final remaining = studentSession.examEndTime.difference(now).inSeconds;
+
+      if (remaining > 0) {
+        // Sinh viên thoát app rồi vào lại:
+        // - Thời gian làm bài vẫn trừ như bình thường (dựa theo wall-clock examEndTime)
+        // - Ghi nhận thêm 1 lượt vi phạm do thoát app!
+        await ref.read(examSessionProvider.notifier).restoreSession(
+          studentSession,
+          additionalViolations: 1,
+        );
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Đã khôi phục bài thi! Bạn bị tính 1 lần vi phạm do thoát ứng dụng.',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: AppColors.rssiCritical,
+            duration: Duration(seconds: 4),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ExamTakingScreen(
+              exam: studentSession.exam,
+              classroom: studentSession.classroom,
+            ),
+          ),
+        );
+        return;
+      } else {
+        // Hết thời gian thi trong lúc thoát app -> Tự động nộp bài
+        await ref.read(examSessionProvider.notifier).restoreSession(
+          studentSession,
+          additionalViolations: 1,
+        );
+        await LocalExamStorage.clearActiveStudentSession();
+      }
+    }
+
+    // 2. Kiểm tra phiên giám thị ca thi của Giảng viên (nếu thoát app khi đang giám thị)
+    final hostSession = await LocalExamStorage.getActiveHostSession();
+    if (hostSession != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.info_outline_rounded, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text('Đang tiếp tục ca thi: ${hostSession.exam.title}'),
+              ),
+            ],
+          ),
+          backgroundColor: AppColors.secondary,
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => HostDashboardScreen(
+            selectedExam: hostSession.exam,
+            useSimulator: false,
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _checkPermissions() async {

@@ -43,6 +43,8 @@ class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
   StreamSubscription<ExamModel>? _examSubscription;
   StreamSubscription<bool>? _masterStartSubscription;
   late String _enteredPin;
+  int _retryCount = 0;
+  Timer? _retryTimer;
 
   @override
   void initState() {
@@ -52,22 +54,37 @@ class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
   }
 
   Future<void> _startConnectionAndDownload() async {
+    _retryTimer?.cancel();
+    if (!mounted) return;
+
     setState(() {
       _isConnecting = true;
-      _statusMessage = 'Đang kết nối tới ${widget.room.name}...';
+      _statusMessage = _retryCount > 0
+          ? 'Đang kết nối lại tới ${widget.room.name} (Lần $_retryCount)...'
+          : 'Đang kết nối tới ${widget.room.name}...';
     });
 
     final success = await BleCentralService.instance.connectToRoom(widget.room);
     if (!mounted) return;
 
     if (!success) {
+      _retryCount++;
       setState(() {
         _isConnecting = false;
-        _statusMessage = 'Kết nối BLE thất bại! Vui lòng thử lại.';
+        _statusMessage = 'Kết nối thất bại. Đang tự động kết nối lại (Lần $_retryCount)...';
+      });
+
+      // Tự động kết nối lại sau 2 giây thay vì yêu cầu thoát app
+      _retryTimer?.cancel();
+      _retryTimer = Timer(const Duration(seconds: 2), () {
+        if (mounted && !_isConnected) {
+          _startConnectionAndDownload();
+        }
       });
       return;
     }
 
+    _retryCount = 0;
     setState(() {
       _isConnected = true;
       _isConnecting = false;
@@ -103,12 +120,18 @@ class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
           totalQuestions: exam.questions.length,
         );
 
-        // Lắng nghe lệnh phát đề đồng loạt từ Giám thị (Master Start Sync)
-        _masterStartSubscription = BleCentralService.instance.masterStartStream.listen((started) {
-          if (started && mounted && !_isPinError) {
-            _onStartExam();
-          }
-        });
+        // Kiểm tra xem Giám thị đã bấm bắt đầu thi trước đó chưa!
+        if (BleCentralService.instance.isMasterExamStarted && !_isPinError) {
+          debugPrint('[ExamDownload] Giám thị đã phát lệnh trước đó -> Vào thi ngay lập tức!');
+          _onStartExam();
+        } else {
+          // Lắng nghe lệnh phát đề đồng loạt từ Giám thị (Master Start Sync)
+          _masterStartSubscription = BleCentralService.instance.masterStartStream.listen((started) {
+            if (started && mounted && !_isPinError) {
+              _onStartExam();
+            }
+          });
+        }
       }
     });
 
@@ -121,6 +144,7 @@ class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
 
   @override
   void dispose() {
+    _retryTimer?.cancel();
     _examSubscription?.cancel();
     _masterStartSubscription?.cancel();
     super.dispose();
@@ -587,18 +611,58 @@ class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
                     ],
                   ),
                 ).animate().fadeIn()
+              else if (!_isConnected && !_isConnecting)
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.textPrimary,
+                          side: BorderSide(color: AppColors.glassBorder),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                        label: const Text('QUAY LẠI'),
+                        onPressed: () {
+                          _retryTimer?.cancel();
+                          BleCentralService.instance.disconnect();
+                          Navigator.pop(context);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        icon: const Icon(Icons.refresh_rounded, size: 20),
+                        label: const Text('KẾT NỐI LẠI NGAY', style: TextStyle(fontWeight: FontWeight.bold)),
+                        onPressed: () {
+                          _retryTimer?.cancel();
+                          _startConnectionAndDownload();
+                        },
+                      ),
+                    ),
+                  ],
+                )
               else
                 NeumorphicButton(
                   onPressed: null,
-                  isLoading: _isConnecting || (currentProgress > 0 && currentProgress < 1.0),
-                  child: const Row(
+                  isLoading: true,
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.downloading_rounded, color: Colors.white, size: 22),
-                      SizedBox(width: 8),
+                      const Icon(Icons.downloading_rounded, color: Colors.white, size: 22),
+                      const SizedBox(width: 8),
                       Text(
-                        'ĐANG TẢI ĐỀ THI...',
-                        style: TextStyle(
+                        _isConnecting ? 'ĐANG KẾT NỐI LẠI...' : 'ĐANG TẢI ĐỀ THI...',
+                        style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
                           color: Colors.white,

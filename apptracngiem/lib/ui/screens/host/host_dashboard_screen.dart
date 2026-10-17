@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/storage/local_exam_storage.dart';
 import '../../../core/utils/excel_helper.dart';
 import '../../../models/candidate_model.dart';
 import '../../../models/exam_model.dart';
@@ -49,6 +50,22 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen>
     // Nạp lại lịch sử bài nộp và danh sách thí sinh đã lưu cho đề thi này
     BlePeripheralService.instance.loadHistoryForExam(_exam.examId);
 
+    // Khôi phục hoặc khởi tạo active host session
+    LocalExamStorage.getActiveHostSession().then((session) {
+      if (session != null && session.exam.examId == _exam.examId && mounted) {
+        setState(() {
+          _isExamStarted = session.isExamStarted || _isExamStarted;
+          _autoSubmitOnViolations = session.autoSubmitOnViolations;
+        });
+        BlePeripheralService.instance.setAutoSubmitOnViolations(_autoSubmitOnViolations);
+        if (session.isAdvertising && !_isAdvertising) {
+          _toggleAdvertising();
+        }
+      } else {
+        _persistHostSession();
+      }
+    });
+
     // Chế độ mô phỏng
     if (widget.useSimulator && BlePeripheralService.instance.candidates.isEmpty) {
       MockBleService.instance.simulateIncomingCandidate(
@@ -68,6 +85,61 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen>
     }
   }
 
+  Future<void> _persistHostSession() async {
+    await LocalExamStorage.saveActiveHostSession(
+      ActiveHostSession(
+        exam: _exam,
+        isAdvertising: _isAdvertising,
+        isExamStarted: _isExamStarted,
+        autoSubmitOnViolations: _autoSubmitOnViolations,
+        startedAt: DateTime.now(),
+      ),
+    );
+  }
+
+  void _confirmExitRoom() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.backgroundSecondary,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: AppColors.glassBorder),
+        ),
+        title: const Text('Rời Phòng Giám Thị?', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+        content: const Text(
+          'Bạn muốn TẠM THOÁT (phiên ca thi vẫn duy trì để quay lại tiếp tục) hay KẾT THÚC hoàn toàn ca thi này?',
+          style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.pop(context);
+            },
+            child: const Text('TẠM THOÁT', style: TextStyle(color: AppColors.secondary, fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.rssiCritical,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await BlePeripheralService.instance.stopHosting();
+              await LocalExamStorage.clearActiveHostSession();
+              if (mounted) {
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('KẾT THÚC CA THI', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _tabController.dispose();
@@ -85,6 +157,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen>
         _isExamStarted = false;
         _isLoading = false;
       });
+      _persistHostSession();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Đã dừng phát phòng thi BLE')),
       );
@@ -98,6 +171,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen>
         _isAdvertising = success;
         _isLoading = false;
       });
+      _persistHostSession();
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -115,6 +189,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen>
   void _handleBroadcastStartExam() {
     BlePeripheralService.instance.broadcastStartExam();
     setState(() => _isExamStarted = true);
+    _persistHostSession();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Đã phát lệnh bắt đầu làm bài cho toàn bộ thí sinh!'),
@@ -253,6 +328,10 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Giám Thị Phòng Thi'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_rounded),
+          onPressed: _confirmExitRoom,
+        ),
         actions: [
           if (widget.useSimulator) ...[
             PopupMenuButton<String>(
@@ -359,6 +438,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen>
                               onChanged: (val) {
                                 setState(() => _autoSubmitOnViolations = val);
                                 BlePeripheralService.instance.setAutoSubmitOnViolations(val);
+                                _persistHostSession();
                               },
                             ),
                           ),

@@ -177,10 +177,142 @@ class LocalExamStorage {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('localquiz_host_history_$examId');
   }
+
+  static const String _keyActiveStudentSession = 'localquiz_active_student_session';
+  static const String _keyActiveHostSession = 'localquiz_active_host_session';
+
+  /// Lưu trạng thái phiên làm bài đang diễn ra của Thí sinh
+  static Future<void> saveActiveStudentSession(ActiveStudentSession session) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyActiveStudentSession, jsonEncode(session.toJson()));
+  }
+
+  /// Lấy thông tin phiên làm bài đang diễn ra của Thí sinh
+  static Future<ActiveStudentSession?> getActiveStudentSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_keyActiveStudentSession);
+    if (raw == null) return null;
+    try {
+      return ActiveStudentSession.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Xóa phiên làm bài của Thí sinh khi đã nộp xong
+  static Future<void> clearActiveStudentSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyActiveStudentSession);
+  }
+
+  /// Lưu trạng thái phiên giám thị ca thi của Giảng viên
+  static Future<void> saveActiveHostSession(ActiveHostSession session) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyActiveHostSession, jsonEncode(session.toJson()));
+  }
+
+  /// Lấy thông tin phiên giám thị ca thi của Giảng viên
+  static Future<ActiveHostSession?> getActiveHostSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_keyActiveHostSession);
+    if (raw == null) return null;
+    try {
+      return ActiveHostSession.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Xóa phiên giám thị của Giảng viên khi kết thúc ca thi
+  static Future<void> clearActiveHostSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyActiveHostSession);
+  }
 }
 
 class HostSessionHistory {
   final List<SubmissionModel> submissions;
   final List<CandidateModel> candidates;
   const HostSessionHistory({required this.submissions, required this.candidates});
+}
+
+class ActiveStudentSession {
+  final ExamModel exam;
+  final String studentId;
+  final String studentName;
+  final String classroom;
+  final DateTime examStartTime;
+  final DateTime examEndTime;
+  final int violationCount;
+  final bool autoSubmitOnViolations;
+
+  const ActiveStudentSession({
+    required this.exam,
+    required this.studentId,
+    required this.studentName,
+    required this.classroom,
+    required this.examStartTime,
+    required this.examEndTime,
+    this.violationCount = 0,
+    this.autoSubmitOnViolations = true,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'exam': exam.toJson(),
+    'studentId': studentId,
+    'studentName': studentName,
+    'classroom': classroom,
+    'examStartTime': examStartTime.toIso8601String(),
+    'examEndTime': examEndTime.toIso8601String(),
+    'violationCount': violationCount,
+    'autoSubmitOnViolations': autoSubmitOnViolations,
+  };
+
+  factory ActiveStudentSession.fromJson(Map<String, dynamic> json) {
+    return ActiveStudentSession(
+      exam: ExamModel.fromJson(json['exam'] as Map<String, dynamic>),
+      studentId: json['studentId'] as String? ?? 'TS',
+      studentName: json['studentName'] as String? ?? 'Thí sinh',
+      classroom: json['classroom'] as String? ?? 'CNTT-K18A',
+      examStartTime: DateTime.tryParse(json['examStartTime'] as String? ?? '') ?? DateTime.now(),
+      examEndTime: DateTime.tryParse(json['examEndTime'] as String? ?? '') ??
+          DateTime.now().add(const Duration(minutes: 30)),
+      violationCount: json['violationCount'] as int? ?? 0,
+      autoSubmitOnViolations: json['autoSubmitOnViolations'] as bool? ?? true,
+    );
+  }
+}
+
+class ActiveHostSession {
+  final ExamModel exam;
+  final bool isAdvertising;
+  final bool isExamStarted;
+  final bool autoSubmitOnViolations;
+  final DateTime startedAt;
+
+  const ActiveHostSession({
+    required this.exam,
+    this.isAdvertising = true,
+    this.isExamStarted = false,
+    this.autoSubmitOnViolations = true,
+    required this.startedAt,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'exam': exam.toJson(),
+    'isAdvertising': isAdvertising,
+    'isExamStarted': isExamStarted,
+    'autoSubmitOnViolations': autoSubmitOnViolations,
+    'startedAt': startedAt.toIso8601String(),
+  };
+
+  factory ActiveHostSession.fromJson(Map<String, dynamic> json) {
+    return ActiveHostSession(
+      exam: ExamModel.fromJson(json['exam'] as Map<String, dynamic>),
+      isAdvertising: json['isAdvertising'] as bool? ?? true,
+      isExamStarted: json['isExamStarted'] as bool? ?? false,
+      autoSubmitOnViolations: json['autoSubmitOnViolations'] as bool? ?? true,
+      startedAt: DateTime.tryParse(json['startedAt'] as String? ?? '') ?? DateTime.now(),
+    );
+  }
 }

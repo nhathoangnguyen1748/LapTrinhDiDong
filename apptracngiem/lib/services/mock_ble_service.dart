@@ -46,7 +46,11 @@ class MockBleService {
   Stream<bool> get masterStartStream => _masterStartController.stream;
   Stream<bool> get forceSubmitStream => _forceSubmitController.stream;
 
+  bool _isMasterExamStarted = false;
+  bool get isMasterExamStarted => _isMasterExamStarted;
+
   void notifyMasterStop() {
+    _isMasterExamStarted = false;
     _forceSubmitController.add(true);
   }
 
@@ -91,6 +95,10 @@ class MockBleService {
 
     // Start RSSI heartbeat
     _startRssiHeartbeat();
+
+    if (_isMasterExamStarted) {
+      _masterStartController.add(true);
+    }
     return true;
   }
 
@@ -160,6 +168,7 @@ class MockBleService {
 
   /// Notify all mock clients that Master Proctor pressed "Start Exam"
   void notifyMasterStart() {
+    _isMasterExamStarted = true;
     _masterStartController.add(true);
     for (int i = 0; i < _mockCandidates.length; i++) {
       if (_mockCandidates[i].status == CandidateStatus.waiting) {

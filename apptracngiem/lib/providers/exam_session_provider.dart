@@ -130,6 +130,21 @@ class ExamSessionNotifier extends StateNotifier<ExamSessionState> {
     // Save exam locally encrypted
     await LocalExamStorage.saveExam(exam);
 
+    final now = DateTime.now();
+    final endTime = now.add(Duration(seconds: exam.durationSeconds));
+    await LocalExamStorage.saveActiveStudentSession(
+      ActiveStudentSession(
+        exam: exam,
+        studentId: studentId,
+        studentName: studentName,
+        classroom: classroom,
+        examStartTime: now,
+        examEndTime: endTime,
+        violationCount: 0,
+        autoSubmitOnViolations: state.autoSubmitOnViolations,
+      ),
+    );
+
     // Start Kiosk anti-cheat protection
     await KioskManager.instance.startKiosk(
       onViolationDetected: (count, reason) {
@@ -143,6 +158,66 @@ class ExamSessionNotifier extends StateNotifier<ExamSessionState> {
     );
 
     // Start countdown timer
+    _startCountdown();
+  }
+
+  /// Khôi phục phiên thi khi thí sinh thoát ứng dụng và mở lại
+  Future<void> restoreSession(ActiveStudentSession session, {required int additionalViolations}) async {
+    _countdownTimer?.cancel();
+
+    final drafts = await LocalExamStorage.loadDraftAnswers(session.exam.examId);
+    final totalViolations = session.violationCount + additionalViolations;
+    final remaining = session.examEndTime.difference(DateTime.now()).inSeconds;
+
+    state = state.copyWith(
+      exam: session.exam,
+      currentQuestionIndex: 0,
+      answers: drafts,
+      flaggedQuestions: {},
+      remainingSeconds: remaining > 0 ? remaining : 0,
+      isTimerPaused: false,
+      violationCount: totalViolations,
+      autoSubmitOnViolations: session.autoSubmitOnViolations,
+      isSubmitted: false,
+      isSubmitting: false,
+      studentId: session.studentId,
+      studentName: session.studentName,
+      classroom: session.classroom,
+      lastViolationReason: 'Rời khỏi ứng dụng khi đang làm bài',
+    );
+
+    // Cập nhật lại phiên lưu trữ với số lần vi phạm mới
+    await LocalExamStorage.saveActiveStudentSession(
+      ActiveStudentSession(
+        exam: session.exam,
+        studentId: session.studentId,
+        studentName: session.studentName,
+        classroom: session.classroom,
+        examStartTime: session.examStartTime,
+        examEndTime: session.examEndTime,
+        violationCount: totalViolations,
+        autoSubmitOnViolations: session.autoSubmitOnViolations,
+      ),
+    );
+
+    // Nếu thời gian đã hết hoặc số vi phạm đạt ngưỡng và bật auto-submit -> Thu bài luôn
+    if (remaining <= 0 || (session.autoSubmitOnViolations && totalViolations >= BleConstants.maxViolationsAllowed)) {
+      await submitExam(isAutoSubmit: true);
+      return;
+    }
+
+    // Bắt đầu Kiosk và đếm ngược tiếp
+    await KioskManager.instance.startKiosk(
+      onViolationDetected: (count, reason) {
+        recordViolation(reason);
+      },
+      onAutoSubmitTriggered: () {
+        if (state.autoSubmitOnViolations && !state.isSubmitted && !state.isSubmitting) {
+          submitExam(isAutoSubmit: true);
+        }
+      },
+    );
+
     _startCountdown();
   }
 
@@ -228,6 +303,24 @@ class ExamSessionNotifier extends StateNotifier<ExamSessionState> {
       lastViolationReason: reason,
     );
 
+    // Cập nhật lại session lưu trữ với số lần vi phạm mới
+    LocalExamStorage.getActiveStudentSession().then((active) {
+      if (active != null) {
+        LocalExamStorage.saveActiveStudentSession(
+          ActiveStudentSession(
+            exam: active.exam,
+            studentId: active.studentId,
+            studentName: active.studentName,
+            classroom: active.classroom,
+            examStartTime: active.examStartTime,
+            examEndTime: active.examEndTime,
+            violationCount: count,
+            autoSubmitOnViolations: active.autoSubmitOnViolations,
+          ),
+        );
+      }
+    });
+
     // Gửi cảnh báo vi phạm về máy Giám thị qua BLE ngay lập tức
     BleCentralService.instance.sendCandidateViolation(
       studentId: state.studentId,
@@ -279,6 +372,7 @@ class ExamSessionNotifier extends StateNotifier<ExamSessionState> {
       await BleCentralService.instance.submitExam(submission);
       await LocalExamStorage.saveSubmission(submission);
       await LocalExamStorage.clearSession();
+      await LocalExamStorage.clearActiveStudentSession();
 
       state = state.copyWith(
         isSubmitted: true,
@@ -290,6 +384,7 @@ class ExamSessionNotifier extends StateNotifier<ExamSessionState> {
       debugPrint('[ExamSession] Submit error: $e');
       // Even if network fails, cache locally as completed
       await LocalExamStorage.saveSubmission(submission);
+      await LocalExamStorage.clearActiveStudentSession();
       state = state.copyWith(
         isSubmitted: true,
         isSubmitting: false,

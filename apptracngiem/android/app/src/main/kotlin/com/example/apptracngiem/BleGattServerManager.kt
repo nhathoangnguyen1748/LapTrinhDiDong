@@ -37,6 +37,7 @@ class BleGattServerManager(
     private val connectedDevices = ConcurrentHashMap.newKeySet<BluetoothDevice>()
     private var charExamData: BluetoothGattCharacteristic? = null
     private var charCandidateControl: BluetoothGattCharacteristic? = null
+    private var isExamStarted = false
 
     private val advertiseCallback = object : AdvertiseCallback() {
         override fun onStartSuccess(settingsInEffect: AdvertiseSettings?) {
@@ -105,6 +106,16 @@ class BleGattServerManager(
                 if (isNotifyEnabled && examChunks.isNotEmpty()) {
                     streamExamChunksToDevice(device)
                 }
+            } else if (descriptor.uuid == CCCD_UUID && descriptor.characteristic?.uuid == CHAR_CANDIDATE_CONTROL_UUID) {
+                val isNotifyEnabled = value != null && value.isNotEmpty() && (value[0].toInt() and 0x01) != 0
+                Log.d(TAG, "Client ${device.address} enabled notify for candidate control: $isNotifyEnabled")
+                if (isNotifyEnabled && isExamStarted) {
+                    charCandidateControl?.let { ctrlChar ->
+                        mainHandler.postDelayed({
+                            sendNotification(device, ctrlChar, byteArrayOf(0x01))
+                        }, 300)
+                    }
+                }
             }
         }
 
@@ -132,6 +143,13 @@ class BleGattServerManager(
                 CHAR_CANDIDATE_CONTROL_UUID -> {
                     mainHandler.post {
                         methodChannel.invokeMethod("onCandidateControlReceived", data)
+                    }
+                    if (isExamStarted) {
+                        charCandidateControl?.let { ctrlChar ->
+                            mainHandler.postDelayed({
+                                sendNotification(device, ctrlChar, byteArrayOf(0x01))
+                            }, 200)
+                        }
                     }
                 }
             }
@@ -184,6 +202,7 @@ class BleGattServerManager(
 
     fun startHosting(roomName: String, chunks: List<ByteArray>): Boolean {
         stopHosting()
+        isExamStarted = false
         examChunks = chunks
 
         val adapter = bluetoothManager?.adapter ?: return false
@@ -267,11 +286,19 @@ class BleGattServerManager(
     }
 
     fun broadcastMasterStart() {
+        isExamStarted = true
         val controlChar = charCandidateControl ?: return
         val startPayload = byteArrayOf(0x01)
-        Log.d(TAG, "Broadcasting Master Start to ${connectedDevices.size} connected devices")
-        for (device in connectedDevices) {
-            sendNotification(device, controlChar, startPayload)
+        Log.d(TAG, "Broadcasting Master Start to ${connectedDevices.size} connected devices (3 pulses)")
+        executor.execute {
+            for (repeat in 1..3) {
+                for (device in connectedDevices) {
+                    sendNotification(device, controlChar, startPayload)
+                }
+                try {
+                    Thread.sleep(120)
+                } catch (_: Exception) {}
+            }
         }
     }
 
@@ -312,5 +339,6 @@ class BleGattServerManager(
         charExamData = null
         charCandidateControl = null
         examChunks = emptyList()
+        isExamStarted = false
     }
 }

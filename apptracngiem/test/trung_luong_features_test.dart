@@ -5,6 +5,7 @@ import 'package:apptracngiem/core/utils/ble_rssi_helper.dart';
 import 'package:apptracngiem/core/security/kiosk_manager.dart';
 import 'package:apptracngiem/core/storage/local_exam_storage.dart';
 import 'package:apptracngiem/core/constants/ble_constants.dart';
+import 'package:apptracngiem/models/exam_model.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -127,6 +128,60 @@ void main() {
 
       loaded = await LocalExamStorage.loadDraftAnswers(testExamId);
       expect(loaded, isEmpty);
+    });
+
+    test('ActiveStudentSession lưu và khôi phục chính xác phiên thi của thí sinh', () async {
+      final sampleExam = ExamModel.sampleExam();
+      final startTime = DateTime.now();
+      final endTime = startTime.add(const Duration(minutes: 15));
+
+      final session = ActiveStudentSession(
+        exam: sampleExam,
+        studentId: '21110001',
+        studentName: 'Nguyễn Văn A',
+        classroom: 'KTPM01',
+        examStartTime: startTime,
+        examEndTime: endTime,
+        violationCount: 1,
+        autoSubmitOnViolations: true,
+      );
+
+      await LocalExamStorage.saveActiveStudentSession(session);
+
+      final restored = await LocalExamStorage.getActiveStudentSession();
+      expect(restored, isNotNull);
+      expect(restored!.studentId, '21110001');
+      expect(restored.studentName, 'Nguyễn Văn A');
+      expect(restored.classroom, 'KTPM01');
+      expect(restored.violationCount, 1);
+      expect(restored.autoSubmitOnViolations, isTrue);
+      expect(restored.exam.examId, sampleExam.examId);
+
+      await LocalExamStorage.clearActiveStudentSession();
+      expect(await LocalExamStorage.getActiveStudentSession(), isNull);
+    });
+
+    test('ActiveHostSession lưu và khôi phục chính xác phiên tổ chức thi của giám thị', () async {
+      final sampleExam = ExamModel.sampleExam();
+      final session = ActiveHostSession(
+        exam: sampleExam,
+        isAdvertising: true,
+        isExamStarted: true,
+        autoSubmitOnViolations: false,
+        startedAt: DateTime.now(),
+      );
+
+      await LocalExamStorage.saveActiveHostSession(session);
+
+      final restored = await LocalExamStorage.getActiveHostSession();
+      expect(restored, isNotNull);
+      expect(restored!.exam.examId, sampleExam.examId);
+      expect(restored.isAdvertising, isTrue);
+      expect(restored.isExamStarted, isTrue);
+      expect(restored.autoSubmitOnViolations, isFalse);
+
+      await LocalExamStorage.clearActiveHostSession();
+      expect(await LocalExamStorage.getActiveHostSession(), isNull);
     });
   });
 }

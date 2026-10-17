@@ -54,6 +54,13 @@ class BleCentralService {
   Stream<bool> get forceSubmitStream => _forceSubmitController.stream;
   Stream<bool> get autoSubmitPolicyStream => _autoSubmitPolicyController.stream;
 
+  bool _isMasterExamStarted = false;
+  bool get isMasterExamStarted => _isMasterExamStarted;
+
+  void resetMasterExamStarted() {
+    _isMasterExamStarted = false;
+  }
+
   bool get isConnected => isMockMode
       ? MockBleService.instance.isConnected
       : (_connectedDevice != null && _connectedDevice!.isConnected);
@@ -136,6 +143,7 @@ class BleCentralService {
   Future<bool> connectToRoom(DiscoveredExamRoom room) async {
     _reassemblyBuffer.reset();
     _downloadProgressController.add(0.0);
+    _isMasterExamStarted = false;
 
     if (room.isMock || isMockMode) {
       isMockMode = true;
@@ -151,6 +159,7 @@ class BleCentralService {
       });
 
       MockBleService.instance.masterStartStream.listen((started) {
+        if (started) _isMasterExamStarted = true;
         _masterStartController.add(started);
       });
 
@@ -158,86 +167,106 @@ class BleCentralService {
         _forceSubmitController.add(force);
       });
 
+      if (MockBleService.instance.isMasterExamStarted) {
+        _isMasterExamStarted = true;
+        _masterStartController.add(true);
+      }
+
       return true;
     }
 
-    try {
-      final device = room.device;
-      if (device == null) return false;
+    final device = room.device;
+    if (device == null) return false;
 
-      _connectedDevice = device;
-      if (!device.isConnected) {
-        await device.connect(autoConnect: false, timeout: const Duration(seconds: 15));
-      }
+    _connectedDevice = device;
 
-      await Future.delayed(const Duration(milliseconds: 300));
-
-      // Request MTU negotiation to 512 bytes
+    const maxAttempts = 3;
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        await device.requestMtu(BleConstants.requestedMtu);
-        debugPrint('[BleCentral] MTU requested: ${BleConstants.requestedMtu}');
-      } catch (e) {
-        debugPrint('[BleCentral] MTU request error (normal on iOS): $e');
-      }
+        debugPrint('[BleCentral] Connecting to ${device.remoteId} (attempt $attempt/$maxAttempts)...');
 
-      await Future.delayed(const Duration(milliseconds: 200));
+        // Disconnect first if active to ensure fresh clean connection
+        if (device.isConnected) {
+          try {
+            await device.disconnect();
+            await Future.delayed(const Duration(milliseconds: 300));
+          } catch (_) {}
+        }
 
-      // Discover GATT services
-      final services = await device.discoverServices();
-      for (final s in services) {
-        final sUuid = s.uuid.toString().toLowerCase();
-        if (sUuid.contains('fef0')) {
-          for (final c in s.characteristics) {
-            final cUuid = c.uuid.toString().toLowerCase();
-            if (cUuid.contains('fef1')) {
-              _examDataChar = c;
-            } else if (cUuid.contains('fef2')) {
-              _submitResultChar = c;
-            } else if (cUuid.contains('fef3')) {
-              _candidateControlChar = c;
+        await device.connect(autoConnect: false, timeout: const Duration(seconds: 8));
+        await Future.delayed(const Duration(milliseconds: 300));
+
+        // Request MTU negotiation to 512 bytes
+        try {
+          await device.requestMtu(BleConstants.requestedMtu);
+          debugPrint('[BleCentral] MTU requested: ${BleConstants.requestedMtu}');
+        } catch (e) {
+          debugPrint('[BleCentral] MTU request error (normal on iOS): $e');
+        }
+
+        await Future.delayed(const Duration(milliseconds: 200));
+
+        // Discover GATT services
+        final services = await device.discoverServices();
+        for (final s in services) {
+          final sUuid = s.uuid.toString().toLowerCase();
+          if (sUuid.contains('fef0')) {
+            for (final c in s.characteristics) {
+              final cUuid = c.uuid.toString().toLowerCase();
+              if (cUuid.contains('fef1')) {
+                _examDataChar = c;
+              } else if (cUuid.contains('fef2')) {
+                _submitResultChar = c;
+              } else if (cUuid.contains('fef3')) {
+                _candidateControlChar = c;
+              }
             }
           }
         }
-      }
 
-      if (_examDataChar != null) {
-        // Subscribe to Notifications for Exam Chunks
-        await _examDataChar!.setNotifyValue(true);
-        _examDataChar!.onValueReceived.listen((value) {
-          if (value.isNotEmpty) {
-            try {
-              final packet = ChunkPacket.fromBytes(Uint8List.fromList(value));
-              _handleChunkReceived(packet);
-            } catch (e) {
-              debugPrint('[BleCentral] Error parsing chunk packet: $e');
+        if (_examDataChar != null) {
+          // Subscribe to Notifications for Exam Chunks
+          await _examDataChar!.setNotifyValue(true);
+          _examDataChar!.onValueReceived.listen((value) {
+            if (value.isNotEmpty) {
+              try {
+                final packet = ChunkPacket.fromBytes(Uint8List.fromList(value));
+                _handleChunkReceived(packet);
+              } catch (e) {
+                debugPrint('[BleCentral] Error parsing chunk packet: $e');
+              }
             }
-          }
-        });
-      }
+          });
+        }
 
-      if (_candidateControlChar != null) {
-        await _candidateControlChar!.setNotifyValue(true);
-        _candidateControlChar!.onValueReceived.listen((value) {
-          if (value.isNotEmpty) {
-            if (value[0] == 0x01) {
-              _masterStartController.add(true);
-            } else if (value[0] == 0x02) {
-              _forceSubmitController.add(true);
-            } else if (value[0] == 0x03 && value.length > 1) {
-              _autoSubmitPolicyController.add(value[1] == 0x01);
+        if (_candidateControlChar != null) {
+          await _candidateControlChar!.setNotifyValue(true);
+          _candidateControlChar!.onValueReceived.listen((value) {
+            if (value.isNotEmpty) {
+              if (value[0] == 0x01) {
+                _isMasterExamStarted = true;
+                _masterStartController.add(true);
+              } else if (value[0] == 0x02) {
+                _forceSubmitController.add(true);
+              } else if (value[0] == 0x03 && value.length > 1) {
+                _autoSubmitPolicyController.add(value[1] == 0x01);
+              }
             }
-          }
-        });
+          });
+        }
+
+        // Start periodic RSSI heartbeat
+        _startRssiHeartbeat();
+
+        return true;
+      } catch (e) {
+        debugPrint('[BleCentral] Connect error attempt $attempt: $e');
+        if (attempt < maxAttempts) {
+          await Future.delayed(const Duration(milliseconds: 600));
+        }
       }
-
-      // Start periodic RSSI heartbeat
-      _startRssiHeartbeat();
-
-      return true;
-    } catch (e) {
-      debugPrint('[BleCentral] Connect error: $e');
-      return false;
     }
+    return false;
   }
 
   void _handleChunkReceived(ChunkPacket packet) {
