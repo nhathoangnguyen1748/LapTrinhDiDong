@@ -20,6 +20,8 @@ class KioskManager with WidgetsBindingObserver {
 
   bool _isKioskActive = false;
   int _violationCount = 0;
+  bool _isInBackground = false;
+  bool _hasAutoSubmitted = false;
   final List<DateTime> _violationTimestamps = [];
   
   ViolationCallback? onViolation;
@@ -36,6 +38,8 @@ class KioskManager with WidgetsBindingObserver {
   }) async {
     _isKioskActive = true;
     _violationCount = 0;
+    _isInBackground = false;
+    _hasAutoSubmitted = false;
     _violationTimestamps.clear();
     
     onViolation = onViolationDetected;
@@ -94,8 +98,14 @@ class KioskManager with WidgetsBindingObserver {
     if (!_isKioskActive) return;
 
     // Phát hiện người dùng cố tình thoát app, chia đôi màn hình hoặc chuyển qua app khác
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
-      _recordViolation('Rời khỏi ứng dụng hoặc bật cửa sổ đa nhiệm');
+    // Chỉ đếm đúng 1 lần khi rời app cho đến khi quay lại (resumed)
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive || state == AppLifecycleState.hidden) {
+      if (!_isInBackground) {
+        _isInBackground = true;
+        _recordViolation('Rời khỏi ứng dụng hoặc bật cửa sổ đa nhiệm');
+      }
+    } else if (state == AppLifecycleState.resumed) {
+      _isInBackground = false;
     }
   }
 
@@ -108,16 +118,21 @@ class KioskManager with WidgetsBindingObserver {
     // Báo cáo vi phạm về UI / Provider
     onViolation?.call(_violationCount, reason);
 
-    // Nếu vi phạm vượt quá số lần tối đa, tự động thu bài nộp
+    // Nếu vi phạm vượt quá số lần tối đa, tự động thu bài nộp đúng 1 lần
     if (_violationCount >= BleConstants.maxViolationsAllowed) {
-      debugPrint('[KioskManager] Đã đạt số lần vi phạm tối đa! Tự động nộp bài...');
-      onAutoSubmit?.call();
+      if (!_hasAutoSubmitted) {
+        _hasAutoSubmitted = true;
+        debugPrint('[KioskManager] Đã đạt số lần vi phạm tối đa! Tự động nộp bài...');
+        onAutoSubmit?.call();
+      }
     }
   }
 
   /// Đặt lại bộ đếm vi phạm
   void reset() {
     _violationCount = 0;
+    _isInBackground = false;
+    _hasAutoSubmitted = false;
     _violationTimestamps.clear();
   }
 }

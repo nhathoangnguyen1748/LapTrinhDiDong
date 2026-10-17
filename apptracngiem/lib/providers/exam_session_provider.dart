@@ -18,6 +18,7 @@ class ExamSessionState {
   final int violationCount;
   final bool isSubmitted;
   final bool isSubmitting;
+  final bool autoSubmitOnViolations;
   final SubmissionModel? submission;
   final String studentId;
   final String studentName;
@@ -34,6 +35,7 @@ class ExamSessionState {
     this.violationCount = 0,
     this.isSubmitted = false,
     this.isSubmitting = false,
+    this.autoSubmitOnViolations = true,
     this.submission,
     this.studentId = 'TS-2026-001',
     this.studentName = 'Nguyễn Văn An',
@@ -51,6 +53,7 @@ class ExamSessionState {
     int? violationCount,
     bool? isSubmitted,
     bool? isSubmitting,
+    bool? autoSubmitOnViolations,
     SubmissionModel? submission,
     String? studentId,
     String? studentName,
@@ -67,6 +70,7 @@ class ExamSessionState {
       violationCount: violationCount ?? this.violationCount,
       isSubmitted: isSubmitted ?? this.isSubmitted,
       isSubmitting: isSubmitting ?? this.isSubmitting,
+      autoSubmitOnViolations: autoSubmitOnViolations ?? this.autoSubmitOnViolations,
       submission: submission ?? this.submission,
       studentId: studentId ?? this.studentId,
       studentName: studentName ?? this.studentName,
@@ -79,7 +83,21 @@ class ExamSessionState {
 class ExamSessionNotifier extends StateNotifier<ExamSessionState> {
   Timer? _countdownTimer;
 
-  ExamSessionNotifier() : super(const ExamSessionState());
+  ExamSessionNotifier() : super(const ExamSessionState()) {
+    BleCentralService.instance.forceSubmitStream.listen((force) {
+      if (force && !state.isSubmitted && !state.isSubmitting && state.exam != null) {
+        submitExam(isAutoSubmit: true);
+      }
+    });
+
+    BleCentralService.instance.autoSubmitPolicyStream.listen((enable) {
+      state = state.copyWith(autoSubmitOnViolations: enable);
+    });
+  }
+
+  void setAutoSubmitOnViolations(bool enable) {
+    state = state.copyWith(autoSubmitOnViolations: enable);
+  }
 
   /// Initialize and start an exam session
   Future<void> startExam(
@@ -118,7 +136,9 @@ class ExamSessionNotifier extends StateNotifier<ExamSessionState> {
         recordViolation(reason);
       },
       onAutoSubmitTriggered: () {
-        submitExam(isAutoSubmit: true);
+        if (state.autoSubmitOnViolations && !state.isSubmitted && !state.isSubmitting) {
+          submitExam(isAutoSubmit: true);
+        }
       },
     );
 
@@ -215,16 +235,16 @@ class ExamSessionNotifier extends StateNotifier<ExamSessionState> {
       alertMessage: reason,
     );
 
-    if (count >= BleConstants.maxViolationsAllowed && !state.isSubmitted) {
+    if (count >= BleConstants.maxViolationsAllowed && !state.isSubmitted && !state.isSubmitting && state.autoSubmitOnViolations) {
       submitExam(isAutoSubmit: true);
     }
   }
 
   /// Calculate score and submit exam via BLE
   Future<bool> submitExam({bool isAutoSubmit = false}) async {
-    if (state.isSubmitted || state.exam == null) return false;
+    if (state.isSubmitted || state.isSubmitting || state.exam == null) return false;
 
-    state = state.copyWith(isSubmitting: true);
+    state = state.copyWith(isSubmitting: true, isSubmitted: true);
     _countdownTimer?.cancel();
     await KioskManager.instance.stopKiosk();
 

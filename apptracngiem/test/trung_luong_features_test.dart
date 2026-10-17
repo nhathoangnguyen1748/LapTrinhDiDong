@@ -65,9 +65,13 @@ void main() {
         },
       );
 
-      // Bắn sự kiện AppLifecycleState.paused nhiều lần để giả lập đa nhiệm
+      // Thoát ra (inactive + paused) rồi vào lại (resumed) chỉ tính 1 lần mỗi lần thoát
       for (int i = 0; i < BleConstants.maxViolationsAllowed; i++) {
+        // Hệ điều hành Android gửi inactive rồi paused trong cùng 1 lần thoát app
+        KioskManager.instance.didChangeAppLifecycleState(AppLifecycleState.inactive);
         KioskManager.instance.didChangeAppLifecycleState(AppLifecycleState.paused);
+        // Thí sinh quay lại app
+        KioskManager.instance.didChangeAppLifecycleState(AppLifecycleState.resumed);
       }
 
       expect(violationCounter, BleConstants.maxViolationsAllowed);

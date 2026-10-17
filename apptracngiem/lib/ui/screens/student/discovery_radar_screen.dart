@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/ble_rssi_helper.dart';
+import '../../../core/utils/device_environment_helper.dart';
 import '../../../providers/ble_providers.dart';
 import '../../../services/ble_central_service.dart';
 import '../../common/glass_card.dart';
@@ -28,7 +30,25 @@ class _DiscoveryRadarScreenState extends ConsumerState<DiscoveryRadarScreen> {
   @override
   void initState() {
     super.initState();
-    _startScanning();
+    _loadSavedStudentInfo();
+  }
+
+  Future<void> _loadSavedStudentInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _nameController.text = prefs.getString('saved_student_name') ?? '';
+        _studentIdController.text = prefs.getString('saved_student_id') ?? '';
+        _classController.text = prefs.getString('saved_student_class') ?? '';
+      });
+    }
+  }
+
+  Future<void> _saveStudentInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('saved_student_name', _nameController.text.trim());
+    await prefs.setString('saved_student_id', _studentIdController.text.trim());
+    await prefs.setString('saved_student_class', _classController.text.trim());
   }
 
   Future<void> _startScanning() async {
@@ -41,6 +61,136 @@ class _DiscoveryRadarScreenState extends ConsumerState<DiscoveryRadarScreen> {
     await BleCentralService.instance.stopScan();
   }
 
+  Future<void> _onScanButtonPressed() async {
+    if (_isScanning) {
+      await _stopScanning();
+      return;
+    }
+
+    final name = _nameController.text.trim();
+    final studentId = _studentIdController.text.trim();
+    final classroom = _classController.text.trim();
+
+    if (name.isEmpty || studentId.isEmpty || classroom.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
+              SizedBox(width: 8),
+              Expanded(child: Text('Vui lòng nhập đầy đủ Họ tên, MSSV và Lớp học trước khi quét')),
+            ],
+          ),
+          backgroundColor: AppColors.rssiCritical,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      return;
+    }
+
+    await _saveStudentInfo();
+
+    // Check hardware & environment: Bluetooth ON, GPS ON, Wi-Fi OFF
+    final env = await DeviceEnvironmentHelper.checkStudentPreConditions();
+    if (!env.isReadyToScan) {
+      _showRequirementDialog(env.errorMessage ?? 'Chưa đáp ứng đủ điều kiện phòng thi');
+      return;
+    }
+
+    await _startScanning();
+  }
+
+  void _showRequirementDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.backgroundSecondary,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: AppColors.glassBorder),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppColors.rssiCritical, size: 24),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Điều Kiện Phòng Thi',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              message,
+              style: const TextStyle(fontSize: 13, color: AppColors.textPrimary, height: 1.4),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceCard,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.glassBorder),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Yêu cầu bắt buộc:',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                  ),
+                  SizedBox(height: 6),
+                  Text('• Bật Bluetooth', style: TextStyle(fontSize: 12, color: AppColors.textPrimary)),
+                  Text('• Bật Vị trí (GPS)', style: TextStyle(fontSize: 12, color: AppColors.textPrimary)),
+                  Text(
+                    '• TẮT Wi-Fi (Chế độ phòng thi ngoại tuyến)',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.rssiCritical),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('ĐÃ HIỂU'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _refreshPage() async {
+    await _loadSavedStudentInfo();
+    if (_isScanning) {
+      await _stopScanning();
+      await Future.delayed(const Duration(milliseconds: 300));
+      await _startScanning();
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Đã làm mới dữ liệu trang'),
+          duration: const Duration(seconds: 1),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    }
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -51,14 +201,14 @@ class _DiscoveryRadarScreenState extends ConsumerState<DiscoveryRadarScreen> {
   }
 
   void _onJoinRoom(DiscoveredExamRoom room) {
-    if (_nameController.text.trim().isEmpty || _studentIdController.text.trim().isEmpty) {
+    if (_nameController.text.trim().isEmpty || _studentIdController.text.trim().isEmpty || _classController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Row(
             children: [
               Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
               SizedBox(width: 8),
-              Expanded(child: Text('Vui lòng nhập Họ tên và MSSV trước khi vào phòng thi')),
+              Expanded(child: Text('Vui lòng nhập đầy đủ Họ tên, MSSV và Lớp học trước khi vào phòng thi')),
             ],
           ),
           backgroundColor: AppColors.rssiCritical,
@@ -68,6 +218,8 @@ class _DiscoveryRadarScreenState extends ConsumerState<DiscoveryRadarScreen> {
       );
       return;
     }
+
+    _saveStudentInfo();
 
     final pinTextController = TextEditingController();
     String? pinError;
@@ -129,7 +281,7 @@ class _DiscoveryRadarScreenState extends ConsumerState<DiscoveryRadarScreen> {
                   ),
                   decoration: InputDecoration(
                     counterText: '',
-                    hintText: 'VD: 1234',
+                    hintText: 'Nhập mã pin',
                     hintStyle: TextStyle(
                       fontSize: 16,
                       letterSpacing: 2,
@@ -221,14 +373,9 @@ class _DiscoveryRadarScreenState extends ConsumerState<DiscoveryRadarScreen> {
         title: const Text('Tìm Phòng Thi BLE'),
         actions: [
           IconButton(
-            icon: Icon(_isScanning ? Icons.sync_rounded : Icons.refresh_rounded),
-            onPressed: () {
-              if (_isScanning) {
-                _stopScanning();
-              } else {
-                _startScanning();
-              }
-            },
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Tải lại trang',
+            onPressed: _refreshPage,
           ),
         ],
       ),
@@ -285,12 +432,35 @@ class _DiscoveryRadarScreenState extends ConsumerState<DiscoveryRadarScreen> {
               ),
             ),
 
+            // Nút quét tìm phòng thi (chỉ quét khi đã nhập đủ thông tin và thỏa mãn Bluetooth/Vị trí/Wi-Fi)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+              child: SizedBox(
+                width: double.infinity,
+                height: 46,
+                child: ElevatedButton.icon(
+                  icon: Icon(_isScanning ? Icons.stop_circle_outlined : Icons.radar_rounded, size: 20),
+                  label: Text(
+                    _isScanning ? 'DỪNG QUÉT PHÒNG THI' : 'QUÉT RADAR TÌM PHÒNG THI',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _isScanning ? AppColors.rssiCritical : AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 2,
+                  ),
+                  onPressed: _onScanButtonPressed,
+                ),
+              ),
+            ),
+
             // Animated BLE Radar (Thu nhỏ hoặc ẩn khi bàn phím xuất hiện chống tràn màn hình)
             if (MediaQuery.of(context).viewInsets.bottom == 0)
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.symmetric(vertical: 6),
                 child: RadarPulseWidget(
-                  size: MediaQuery.of(context).size.height < 650 ? 140 : 180,
+                  size: MediaQuery.of(context).size.height < 650 ? 130 : 160,
                   isScanning: _isScanning,
                 ),
               ),
@@ -302,7 +472,7 @@ class _DiscoveryRadarScreenState extends ConsumerState<DiscoveryRadarScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    _isScanning ? 'Đang quét sóng phòng thi...' : 'Đã dừng quét',
+                    _isScanning ? 'Đang quét sóng phòng thi...' : 'Chưa bật quét phòng thi',
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,

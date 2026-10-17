@@ -275,6 +275,24 @@ class BleGattServerManager(
         }
     }
 
+    fun broadcastForceSubmit() {
+        val controlChar = charCandidateControl ?: return
+        val forcePayload = byteArrayOf(0x02)
+        Log.d(TAG, "Broadcasting Force Submit to ${connectedDevices.size} connected devices")
+        for (device in connectedDevices) {
+            sendNotification(device, controlChar, forcePayload)
+        }
+    }
+
+    fun broadcastPolicy(autoSubmitOnViolations: Boolean) {
+        val controlChar = charCandidateControl ?: return
+        val policyPayload = byteArrayOf(0x03, if (autoSubmitOnViolations) 0x01 else 0x00)
+        Log.d(TAG, "Broadcasting Policy autoSubmit=$autoSubmitOnViolations")
+        for (device in connectedDevices) {
+            sendNotification(device, controlChar, policyPayload)
+        }
+    }
+
     fun stopHosting() {
         try {
             advertiser?.stopAdvertising(advertiseCallback)

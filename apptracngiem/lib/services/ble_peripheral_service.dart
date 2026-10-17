@@ -7,6 +7,7 @@ import 'package:flutter_ble_peripheral/flutter_ble_peripheral.dart';
 import '../core/constants/ble_constants.dart';
 import '../core/security/aes_encryption_service.dart';
 import '../core/security/chunk_protocol.dart';
+import '../core/storage/local_exam_storage.dart';
 import '../models/candidate_model.dart';
 import '../models/exam_model.dart';
 import '../models/submission_model.dart';
@@ -21,6 +22,7 @@ class BlePeripheralService {
   bool _isAdvertising = false;
   bool _isExamStarted = false;
   bool _isNativeHandlerRegistered = false;
+  bool _autoSubmitOnViolations = true;
   ExamModel? _currentExam;
   final List<SubmissionModel> _receivedSubmissions = [];
   final List<CandidateModel> _candidates = [];
@@ -35,9 +37,31 @@ class BlePeripheralService {
 
   bool get isAdvertising => _isAdvertising;
   bool get isExamStarted => _isExamStarted;
+  bool get autoSubmitOnViolations => _autoSubmitOnViolations;
   ExamModel? get currentExam => _currentExam;
   List<SubmissionModel> get receivedSubmissions => List.unmodifiable(_receivedSubmissions);
   List<CandidateModel> get candidates => List.unmodifiable(_candidates);
+
+  void setAutoSubmitOnViolations(bool enabled) {
+    _autoSubmitOnViolations = enabled;
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        _hostChannel.invokeMethod('broadcastPolicy', {'autoSubmit': enabled});
+      } catch (_) {}
+    }
+  }
+
+  Future<void> loadHistoryForExam(String examId) async {
+    final history = await LocalExamStorage.loadHostSessionHistory(examId);
+    if (history.submissions.isNotEmpty || history.candidates.isNotEmpty) {
+      _receivedSubmissions.clear();
+      _candidates.clear();
+      _receivedSubmissions.addAll(history.submissions);
+      _candidates.addAll(history.candidates);
+      _submissionsController.add(List.from(_receivedSubmissions));
+      _candidatesController.add(List.from(_candidates));
+    }
+  }
 
   void _registerNativeHandler() {
     if (_isNativeHandlerRegistered) return;
@@ -122,12 +146,27 @@ class BlePeripheralService {
 
   /// Start Host mode advertising with GATT Service
   Future<bool> startHosting(ExamModel exam, {bool isMock = false}) async {
+    final isNewExam = _currentExam != null && _currentExam!.examId != exam.examId;
+    if (isNewExam) {
+      if (_currentExam != null) {
+        await LocalExamStorage.saveHostSessionHistory(
+          _currentExam!.examId,
+          _receivedSubmissions,
+          _candidates,
+        );
+      }
+      _receivedSubmissions.clear();
+      _candidates.clear();
+    } else if (_receivedSubmissions.isEmpty && _candidates.isEmpty) {
+      final history = await LocalExamStorage.loadHostSessionHistory(exam.examId);
+      _receivedSubmissions.addAll(history.submissions);
+      _candidates.addAll(history.candidates);
+    }
+
     _currentExam = exam;
     _isExamStarted = false;
-    _receivedSubmissions.clear();
-    _candidates.clear();
-    _submissionsController.add([]);
-    _candidatesController.add([]);
+    _submissionsController.add(List.from(_receivedSubmissions));
+    _candidatesController.add(List.from(_candidates));
 
     if (isMock) {
       _isAdvertising = true;
@@ -263,6 +302,15 @@ class BlePeripheralService {
 
   /// Stop Host advertising
   Future<void> stopHosting() async {
+    if (_isExamStarted) {
+      if (!kIsWeb && Platform.isAndroid) {
+        try {
+          await _hostChannel.invokeMethod('broadcastForceSubmit');
+        } catch (_) {}
+      }
+      MockBleService.instance.notifyMasterStop();
+    }
+
     _isAdvertising = false;
     _isExamStarted = false;
 
@@ -275,11 +323,25 @@ class BlePeripheralService {
     try {
       await _blePeripheral.stop();
     } catch (_) {}
+
+    // Lưu lại lịch sử phòng thi để không bị mất khi thoát
+    if (_currentExam != null) {
+      await LocalExamStorage.saveHostSessionHistory(
+        _currentExam!.examId,
+        _receivedSubmissions,
+        _candidates,
+      );
+    }
   }
 
-  /// Manually add received submission
+  /// Manually add received submission (deduplicates by studentId)
   void addSubmission(SubmissionModel submission) {
-    _receivedSubmissions.add(submission);
+    final existingIdx = _receivedSubmissions.indexWhere((s) => s.studentId == submission.studentId);
+    if (existingIdx >= 0) {
+      _receivedSubmissions[existingIdx] = submission;
+    } else {
+      _receivedSubmissions.add(submission);
+    }
     _submissionsController.add(List.from(_receivedSubmissions));
 
     // Cập nhật trạng thái thí sinh thành 'submitted'
@@ -291,6 +353,15 @@ class BlePeripheralService {
         receiptHash: submission.receiptHash ?? 'ACK-${submission.studentId}-OK',
       );
       _candidatesController.add(List.from(_candidates));
+    }
+
+    // Tự động lưu lịch sử bài nộp
+    if (_currentExam != null) {
+      LocalExamStorage.saveHostSessionHistory(
+        _currentExam!.examId,
+        _receivedSubmissions,
+        _candidates,
+      );
     }
   }
 }

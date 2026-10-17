@@ -192,7 +192,7 @@ class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
                   ),
                   decoration: InputDecoration(
                     counterText: '',
-                    hintText: 'VD: 1234',
+                    hintText: 'Nhập mã pin',
                     errorText: err,
                     filled: true,
                     fillColor: AppColors.surfaceCard,

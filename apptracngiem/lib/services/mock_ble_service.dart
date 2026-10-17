@@ -34,6 +34,7 @@ class MockBleService {
   final _hostSubmissionsController = StreamController<SubmissionModel>.broadcast();
   final _hostCandidatesController = StreamController<List<CandidateModel>>.broadcast();
   final _masterStartController = StreamController<bool>.broadcast();
+  final _forceSubmitController = StreamController<bool>.broadcast();
 
   final List<CandidateModel> _mockCandidates = [];
 
@@ -43,6 +44,11 @@ class MockBleService {
   Stream<SubmissionModel> get hostSubmissions => _hostSubmissionsController.stream;
   Stream<List<CandidateModel>> get hostCandidates => _hostCandidatesController.stream;
   Stream<bool> get masterStartStream => _masterStartController.stream;
+  Stream<bool> get forceSubmitStream => _forceSubmitController.stream;
+
+  void notifyMasterStop() {
+    _forceSubmitController.add(true);
+  }
 
   bool get isScanning => _isScanning;
   bool get isConnected => _isConnected;

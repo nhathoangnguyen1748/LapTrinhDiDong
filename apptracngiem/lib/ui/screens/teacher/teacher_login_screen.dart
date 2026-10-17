@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
 import '../../common/glass_card.dart';
@@ -19,6 +20,28 @@ class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
   final _nameController = TextEditingController();
   bool _isRegisterMode = false;
   bool _obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedTeacherCredentials();
+  }
+
+  Future<void> _loadSavedTeacherCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _emailController.text = prefs.getString('saved_teacher_email') ?? '';
+        _passwordController.text = prefs.getString('saved_teacher_password') ?? '';
+      });
+    }
+  }
+
+  Future<void> _saveTeacherCredentials(String email, String password) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('saved_teacher_email', email);
+    await prefs.setString('saved_teacher_password', password);
+  }
 
   @override
   void dispose() {
@@ -53,6 +76,8 @@ class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
     if (!mounted) return;
 
     if (success) {
+      await _saveTeacherCredentials(email, password);
+      if (!mounted) return;
       _showToast(_isRegisterMode ? 'Đăng ký thành công!' : 'Đăng nhập thành công!');
       Navigator.pushReplacement(
         context,

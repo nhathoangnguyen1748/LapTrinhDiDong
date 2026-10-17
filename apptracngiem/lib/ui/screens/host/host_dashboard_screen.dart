@@ -34,6 +34,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen>
   bool _isLoading = false;
   bool _isSyncing = false;
   bool _isExamStarted = false;
+  bool _autoSubmitOnViolations = true;
   int _lastSyncedCount = 0;
 
   @override
@@ -43,6 +44,10 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen>
     _tabController = TabController(length: 2, vsync: this);
     _isAdvertising = BlePeripheralService.instance.isAdvertising;
     _isExamStarted = BlePeripheralService.instance.isExamStarted;
+    _autoSubmitOnViolations = BlePeripheralService.instance.autoSubmitOnViolations;
+
+    // Nạp lại lịch sử bài nộp và danh sách thí sinh đã lưu cho đề thi này
+    BlePeripheralService.instance.loadHistoryForExam(_exam.examId);
 
     // Chế độ mô phỏng
     if (widget.useSimulator && BlePeripheralService.instance.candidates.isEmpty) {
@@ -321,6 +326,44 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen>
                         Text('${_exam.questions.length} câu', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
                         Text('Ngưỡng: ${_exam.rssiThreshold} dBm', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
                       ],
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceCard,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.glassBorder.withOpacity(0.5)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _autoSubmitOnViolations ? Icons.gavel_rounded : Icons.warning_amber_rounded,
+                            size: 16,
+                            color: _autoSubmitOnViolations ? AppColors.secondary : AppColors.rssiWarning,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _autoSubmitOnViolations
+                                  ? 'Tự động thu bài khi vi phạm 3 lần: BẬT'
+                                  : 'Tự động thu bài khi vi phạm 3 lần: TẮT',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                            ),
+                          ),
+                          Transform.scale(
+                            scale: 0.75,
+                            child: Switch(
+                              value: _autoSubmitOnViolations,
+                              activeColor: AppColors.secondary,
+                              onChanged: (val) {
+                                setState(() => _autoSubmitOnViolations = val);
+                                BlePeripheralService.instance.setAutoSubmitOnViolations(val);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 10),
                     Row(

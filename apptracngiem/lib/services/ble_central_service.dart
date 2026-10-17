@@ -43,12 +43,16 @@ class BleCentralService {
   final _downloadProgressController = StreamController<double>.broadcast();
   final _completedExamController = StreamController<ExamModel>.broadcast();
   final _masterStartController = StreamController<bool>.broadcast();
+  final _forceSubmitController = StreamController<bool>.broadcast();
+  final _autoSubmitPolicyController = StreamController<bool>.broadcast();
 
   Stream<List<DiscoveredExamRoom>> get roomsStream => _roomsController.stream;
   Stream<int> get rssiStream => _rssiController.stream;
   Stream<double> get downloadProgressStream => _downloadProgressController.stream;
   Stream<ExamModel> get completedExamStream => _completedExamController.stream;
   Stream<bool> get masterStartStream => _masterStartController.stream;
+  Stream<bool> get forceSubmitStream => _forceSubmitController.stream;
+  Stream<bool> get autoSubmitPolicyStream => _autoSubmitPolicyController.stream;
 
   bool get isConnected => isMockMode
       ? MockBleService.instance.isConnected
@@ -150,6 +154,10 @@ class BleCentralService {
         _masterStartController.add(started);
       });
 
+      MockBleService.instance.forceSubmitStream.listen((force) {
+        _forceSubmitController.add(force);
+      });
+
       return true;
     }
 
@@ -210,8 +218,14 @@ class BleCentralService {
       if (_candidateControlChar != null) {
         await _candidateControlChar!.setNotifyValue(true);
         _candidateControlChar!.onValueReceived.listen((value) {
-          if (value.isNotEmpty && value[0] == 0x01) {
-            _masterStartController.add(true);
+          if (value.isNotEmpty) {
+            if (value[0] == 0x01) {
+              _masterStartController.add(true);
+            } else if (value[0] == 0x02) {
+              _forceSubmitController.add(true);
+            } else if (value[0] == 0x03 && value.length > 1) {
+              _autoSubmitPolicyController.add(value[1] == 0x01);
+            }
           }
         });
       }

@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../security/aes_encryption_service.dart';
 import '../../models/exam_model.dart';
 import '../../models/submission_model.dart';
+import '../../models/candidate_model.dart';
 
 /// Lớp hỗ trợ lưu trữ dữ liệu ngoại tuyến an toàn vào bộ nhớ trong của thiết bị.
 /// Sử dụng SharedPreferences kết hợp AES Encryption cho dữ liệu nhạy cảm.
@@ -131,4 +132,55 @@ class LocalExamStorage {
     await prefs.remove(_keyDraftAnswers);
     // Lưu ý: Không xóa _keyLastSubmission ở đây để còn có thể xem lại kết quả
   }
+
+  /// Lưu trữ lịch sử phòng thi của Giám thị (bài nộp và danh sách thí sinh)
+  static Future<void> saveHostSessionHistory(
+    String examId,
+    List<SubmissionModel> submissions,
+    List<CandidateModel> candidates,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    final subList = submissions.map((s) => s.toJson()).toList();
+    final canList = candidates.map((c) => c.toJson()).toList();
+    final raw = jsonEncode({
+      'submissions': subList,
+      'candidates': canList,
+    });
+    await prefs.setString('localquiz_host_history_$examId', raw);
+  }
+
+  /// Tải lại lịch sử phòng thi đã lưu trước đó của Giám thị
+  static Future<HostSessionHistory> loadHostSessionHistory(String examId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('localquiz_host_history_$examId');
+    if (raw == null) return const HostSessionHistory(submissions: [], candidates: []);
+
+    try {
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      final rawSubs = decoded['submissions'] as List<dynamic>? ?? [];
+      final rawCans = decoded['candidates'] as List<dynamic>? ?? [];
+
+      final submissions = rawSubs
+          .map((m) => SubmissionModel.fromJson(m as Map<String, dynamic>))
+          .toList();
+      final candidates = rawCans
+          .map((m) => CandidateModel.fromJson(m as Map<String, dynamic>))
+          .toList();
+      return HostSessionHistory(submissions: submissions, candidates: candidates);
+    } catch (_) {
+      return const HostSessionHistory(submissions: [], candidates: []);
+    }
+  }
+
+  /// Xóa lịch sử phòng thi khi cần thiết
+  static Future<void> clearHostSessionHistory(String examId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('localquiz_host_history_$examId');
+  }
+}
+
+class HostSessionHistory {
+  final List<SubmissionModel> submissions;
+  final List<CandidateModel> candidates;
+  const HostSessionHistory({required this.submissions, required this.candidates});
 }
