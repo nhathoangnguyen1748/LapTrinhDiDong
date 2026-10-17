@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../services/api_service.dart';
 import '../../common/glass_card.dart';
 import '../../common/neumorphic_button.dart';
 import 'teacher_exam_list_screen.dart';
@@ -15,9 +14,9 @@ class TeacherLoginScreen extends ConsumerStatefulWidget {
 }
 
 class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
-  final _emailController = TextEditingController(text: 'teacher@localquiz.edu.vn');
-  final _passwordController = TextEditingController(text: '123456');
-  final _nameController = TextEditingController(text: 'ThS. Nguyễn Văn Hùng');
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _nameController = TextEditingController();
   bool _isRegisterMode = false;
   bool _obscurePassword = true;
 
@@ -75,55 +74,6 @@ class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
     );
   }
 
-  void _showServerConfigDialog() {
-    final urlController = TextEditingController(text: ApiService.instance.baseUrl);
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceDark,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Cấu hình Server API', style: TextStyle(fontSize: 16)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextField(
-              controller: urlController,
-              style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
-              decoration: const InputDecoration(
-                labelText: 'Địa chỉ Server (FastAPI)',
-                hintText: 'http://192.168.1.15:8000/api/v1',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Hủy'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-            onPressed: () async {
-              await ApiService.instance.setBaseUrl(urlController.text);
-              if (ctx.mounted) {
-                Navigator.pop(ctx);
-              }
-              if (mounted) {
-                _showToast('Đã lưu máy chủ: ${ApiService.instance.baseUrl}');
-                setState(() {});
-              }
-            },
-            child: const Text('Lưu', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
@@ -131,13 +81,6 @@ class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Cổng Giảng Viên'),
-        actions: [
-          IconButton(
-            tooltip: 'Cài đặt IP Server',
-            icon: const Icon(Icons.settings_ethernet_rounded),
-            onPressed: _showServerConfigDialog,
-          ),
-        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -145,105 +88,72 @@ class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
 
               Center(
                 child: Container(
-                  width: 64,
-                  height: 64,
+                  width: 68,
+                  height: 68,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: AppColors.emeraldGradient,
                   ),
-                  child: const Icon(Icons.school_rounded, color: Colors.white, size: 32),
+                  child: const Icon(Icons.school_rounded, color: Colors.white, size: 34),
                 ),
               ),
 
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
 
               Center(
                 child: Text(
                   _isRegisterMode ? 'Đăng Ký Giảng Viên' : 'Đăng Nhập Giảng Viên',
                   style: const TextStyle(
-                    fontSize: 18,
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: AppColors.textPrimary,
                   ),
                 ),
               ),
 
-              const SizedBox(height: 16),
-
-              // Server Indicator
-              Center(
-                child: InkWell(
-                  onTap: _showServerConfigDialog,
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceCard,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.glassBorder),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.cloud_done_rounded, size: 12, color: AppColors.secondary),
-                        const SizedBox(width: 6),
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 220),
-                          child: Text(
-                            ApiService.instance.baseUrl,
-                            style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
               // Form
               GlassCard(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(20),
                 child: Column(
                   children: [
                     if (_isRegisterMode) ...[
                       TextField(
                         controller: _nameController,
-                        style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+                        style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
                         decoration: InputDecoration(
                           labelText: 'Họ và tên Giảng viên',
                           prefixIcon: const Icon(Icons.badge_rounded, size: 20),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                           isDense: true,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 14),
                     ],
 
                     TextField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
-                      style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+                      style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
                       decoration: InputDecoration(
                         labelText: 'Email',
                         prefixIcon: const Icon(Icons.email_rounded, size: 20),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         isDense: true,
                       ),
                     ),
 
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 14),
 
                     TextField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
-                      style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+                      style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
                       decoration: InputDecoration(
                         labelText: 'Mật khẩu',
                         prefixIcon: const Icon(Icons.lock_rounded, size: 20),
@@ -255,12 +165,12 @@ class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
                           ),
                           onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                         ),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         isDense: true,
                       ),
                     ),
 
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
 
                     NeumorphicButton(
                       gradient: AppColors.emeraldGradient,
@@ -274,13 +184,13 @@ class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
                             color: Colors.white,
                             size: 18,
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 8),
                           Text(
                             _isRegisterMode ? 'ĐĂNG KÝ' : 'ĐĂNG NHẬP',
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
-                              fontSize: 13,
+                              fontSize: 14,
                             ),
                           ),
                         ],
@@ -290,7 +200,7 @@ class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
                 ),
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
 
               TextButton(
                 onPressed: () {
@@ -300,31 +210,8 @@ class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
                   _isRegisterMode
                       ? 'Đã có tài khoản? Đăng nhập'
                       : 'Chưa có tài khoản? Đăng ký',
-                  style: const TextStyle(color: AppColors.primaryLight, fontSize: 12),
+                  style: const TextStyle(color: AppColors.primaryLight, fontSize: 13, fontWeight: FontWeight.w600),
                 ),
-              ),
-
-              const SizedBox(height: 8),
-
-              // Demo fill button
-              OutlinedButton.icon(
-                icon: const Icon(Icons.flash_on_rounded, color: AppColors.rssiWarning, size: 14),
-                label: const Text(
-                  'Điền tài khoản Demo',
-                  style: TextStyle(fontSize: 11, color: AppColors.rssiWarning),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: AppColors.rssiWarning.withOpacity(0.3)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                ),
-                onPressed: () {
-                  setState(() {
-                    _emailController.text = 'teacher@localquiz.edu.vn';
-                    _passwordController.text = '123456';
-                    _isRegisterMode = false;
-                  });
-                },
               ),
             ],
           ),

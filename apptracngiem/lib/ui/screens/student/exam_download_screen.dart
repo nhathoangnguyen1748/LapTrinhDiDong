@@ -530,40 +530,84 @@ class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
 
               const SizedBox(height: 16),
 
-              // Action Button
-              NeumorphicButton(
-                onPressed: _isPinError
-                    ? _promptReenterPin
-                    : (_downloadedExam != null ? _onStartExam : null),
-                gradient: _isPinError
-                    ? AppColors.primaryGradient
-                    : (_downloadedExam != null ? AppColors.emeraldGradient : null),
-                isLoading: _isConnecting || (currentProgress > 0 && currentProgress < 1.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      _isPinError
-                          ? Icons.key_rounded
-                          : (_downloadedExam != null ? Icons.play_arrow_rounded : Icons.downloading_rounded),
-                      color: Colors.white,
-                      size: 22,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      _isPinError
-                          ? 'NHẬP LẠI MÃ PIN'
-                          : (_downloadedExam != null ? 'BẮT ĐẦU LÀM BÀI' : 'ĐANG TẢI ĐỀ THI...'),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: 0.3,
+              // Action / Waiting Status Indicator
+              if (_isPinError)
+                NeumorphicButton(
+                  onPressed: _promptReenterPin,
+                  gradient: AppColors.primaryGradient,
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.key_rounded, color: Colors.white, size: 22),
+                      SizedBox(width: 8),
+                      Text(
+                        'NHẬP LẠI MÃ PIN',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: 0.3,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
+                )
+              else if (_downloadedExam != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondary.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.secondary.withOpacity(0.4)),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          valueColor: AlwaysStoppedAnimation<Color>(AppColors.secondary),
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'ĐÃ ĐIỂM DANH - CHỜ GIÁM THỊ BẮT ĐẦU...',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.secondary,
+                            letterSpacing: 0.3,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+                  ),
+                ).animate().fadeIn()
+              else
+                NeumorphicButton(
+                  onPressed: null,
+                  isLoading: _isConnecting || (currentProgress > 0 && currentProgress < 1.0),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.downloading_rounded, color: Colors.white, size: 22),
+                      SizedBox(width: 8),
+                      Text(
+                        'ĐANG TẢI ĐỀ THI...',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
             ],
           ),
         ),

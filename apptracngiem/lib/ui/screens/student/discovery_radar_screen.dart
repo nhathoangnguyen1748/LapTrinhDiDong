@@ -13,16 +13,16 @@ import 'exam_download_screen.dart';
 class DiscoveryRadarScreen extends ConsumerStatefulWidget {
   final bool useSimulator;
 
-  const DiscoveryRadarScreen({super.key, this.useSimulator = true});
+  const DiscoveryRadarScreen({super.key, this.useSimulator = false});
 
   @override
   ConsumerState<DiscoveryRadarScreen> createState() => _DiscoveryRadarScreenState();
 }
 
 class _DiscoveryRadarScreenState extends ConsumerState<DiscoveryRadarScreen> {
-  final TextEditingController _nameController = TextEditingController(text: 'Nguyễn Văn An');
-  final TextEditingController _studentIdController = TextEditingController(text: 'TS-2026-001');
-  final TextEditingController _classController = TextEditingController(text: 'CNTT-K18A');
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _studentIdController = TextEditingController();
+  final TextEditingController _classController = TextEditingController();
   bool _isScanning = false;
 
   @override
@@ -51,6 +51,24 @@ class _DiscoveryRadarScreenState extends ConsumerState<DiscoveryRadarScreen> {
   }
 
   void _onJoinRoom(DiscoveredExamRoom room) {
+    if (_nameController.text.trim().isEmpty || _studentIdController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
+              SizedBox(width: 8),
+              Expanded(child: Text('Vui lòng nhập Họ tên và MSSV trước khi vào phòng thi')),
+            ],
+          ),
+          backgroundColor: AppColors.rssiCritical,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      return;
+    }
+
     final pinTextController = TextEditingController();
     String? pinError;
 
@@ -221,40 +239,33 @@ class _DiscoveryRadarScreenState extends ConsumerState<DiscoveryRadarScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
               child: GlassCard(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Column(
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: TextField(
-                            controller: _nameController,
-                            style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
-                            decoration: const InputDecoration(
-                              labelText: 'Họ và tên thí sinh',
-                              labelStyle: TextStyle(fontSize: 11, color: AppColors.textMuted),
-                              border: InputBorder.none,
-                              isDense: true,
-                            ),
-                          ),
-                        ),
-                        Container(width: 1, height: 26, color: AppColors.glassBorder),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          flex: 2,
-                          child: TextField(
-                            controller: _studentIdController,
-                            style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
-                            decoration: const InputDecoration(
-                              labelText: 'SBD / MSSV',
-                              labelStyle: TextStyle(fontSize: 11, color: AppColors.textMuted),
-                              border: InputBorder.none,
-                              isDense: true,
-                            ),
-                          ),
-                        ),
-                      ],
+                    TextField(
+                      controller: _nameController,
+                      style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
+                      decoration: const InputDecoration(
+                        labelText: 'Họ và tên thí sinh',
+                        hintText: 'Nhập họ và tên...',
+                        labelStyle: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                        hintStyle: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                        border: InputBorder.none,
+                        isDense: true,
+                      ),
+                    ),
+                    Divider(color: AppColors.glassBorder.withOpacity(0.5), height: 10),
+                    TextField(
+                      controller: _studentIdController,
+                      style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
+                      decoration: const InputDecoration(
+                        labelText: 'SBD / MSSV',
+                        hintText: 'Nhập số báo danh / MSSV...',
+                        labelStyle: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                        hintStyle: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                        border: InputBorder.none,
+                        isDense: true,
+                      ),
                     ),
                     Divider(color: AppColors.glassBorder.withOpacity(0.5), height: 10),
                     TextField(
@@ -262,7 +273,9 @@ class _DiscoveryRadarScreenState extends ConsumerState<DiscoveryRadarScreen> {
                       style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
                       decoration: const InputDecoration(
                         labelText: 'Lớp học (VD: CNTT-K18A)',
+                        hintText: 'Nhập lớp học...',
                         labelStyle: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                        hintStyle: TextStyle(fontSize: 11, color: AppColors.textMuted),
                         border: InputBorder.none,
                         isDense: true,
                       ),

@@ -7,7 +7,7 @@ import '../../common/glass_card.dart';
 import '../../common/neumorphic_button.dart';
 import 'exam_review_screen.dart';
 
-class ExamResultScreen extends StatelessWidget {
+class ExamResultScreen extends StatefulWidget {
   final SubmissionModel submission;
   final ExamModel? exam;
 
@@ -18,7 +18,41 @@ class ExamResultScreen extends StatelessWidget {
   });
 
   @override
+  State<ExamResultScreen> createState() => _ExamResultScreenState();
+}
+
+class _ExamResultScreenState extends State<ExamResultScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                SizedBox(width: 10),
+                Text(
+                  'Nộp bài thi thành công!',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
+                ),
+              ],
+            ),
+            backgroundColor: AppColors.secondary,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final submission = widget.submission;
+    final exam = widget.exam;
     final total = submission.totalQuestions > 0 ? submission.totalQuestions : 1;
     final scoreRatio = (submission.score / total).clamp(0.0, 1.0);
     final score10 = (scoreRatio * 10).toStringAsFixed(1);
@@ -34,47 +68,11 @@ class ExamResultScreen extends StatelessWidget {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // BLE Transmission ACK Badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: AppColors.secondary.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.secondary.withOpacity(0.5)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.verified_rounded, color: AppColors.secondary, size: 28),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Đã Xác Nhận ACK Thành Công',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.secondary,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Biên lai mã hóa: ${submission.receiptHash ?? "ACK-2026-OK"}\nMáy chủ Giám thị đã nhận và ghi nhận bài nộp an toàn.',
-                            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary, height: 1.3),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ).animate().fadeIn().slideY(begin: -0.1),
-
-              const SizedBox(height: 28),
+              const SizedBox(height: 10),
 
               // Circular Score Chart
               Center(
@@ -190,13 +188,14 @@ class ExamResultScreen extends StatelessWidget {
 
               if (exam != null) ...[
                 NeumorphicButton(
-                  gradient: AppColors.primaryGradient,
+                  surfaceColor: AppColors.surfaceCard,
+                  borderColor: AppColors.primary.withOpacity(0.5),
                   onPressed: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => ExamReviewScreen(
-                          exam: exam!,
+                          exam: exam,
                           submission: submission,
                         ),
                       ),
@@ -205,11 +204,11 @@ class ExamResultScreen extends StatelessWidget {
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.rate_review_rounded, color: Colors.white, size: 20),
+                      Icon(Icons.rate_review_rounded, color: AppColors.primary, size: 20),
                       SizedBox(width: 8),
                       Text(
                         'XEM LẠI BÀI LÀM CHI TIẾT',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primary),
                       ),
                     ],
                   ),
@@ -219,6 +218,7 @@ class ExamResultScreen extends StatelessWidget {
 
               // Home Button
               NeumorphicButton(
+                gradient: AppColors.primaryGradient,
                 onPressed: () {
                   Navigator.popUntil(context, (route) => route.isFirst);
                 },

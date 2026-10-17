@@ -17,7 +17,6 @@ class HomeRoleSelectScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeRoleSelectScreenState extends ConsumerState<HomeRoleSelectScreen> {
-  bool _useSimulator = true;
   bool _hasPermission = false;
 
   @override
@@ -87,13 +86,13 @@ class _HomeRoleSelectScreenState extends ConsumerState<HomeRoleSelectScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
 
                   // App Logo & Badge
                   Center(
                     child: Container(
-                      width: 84,
-                      height: 84,
+                      width: 88,
+                      height: 88,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         gradient: AppColors.primaryGradient,
@@ -108,7 +107,7 @@ class _HomeRoleSelectScreenState extends ConsumerState<HomeRoleSelectScreen> {
                       child: const Icon(
                         Icons.wifi_tethering_rounded,
                         color: Colors.white,
-                        size: 44,
+                        size: 46,
                       ),
                     ),
                   )
@@ -131,70 +130,10 @@ class _HomeRoleSelectScreenState extends ConsumerState<HomeRoleSelectScreen> {
                     ),
                   ).animate().fadeIn(delay: 200.ms),
 
-                  const SizedBox(height: 8),
-
-                  const Center(
-                    child: Text(
-                      'Hệ Thống Thi Trắc Nghiệm BLE Ngoại Tuyến\nĐịnh Vị Vùng Làm Bài Bằng RSSI Geofencing',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textSecondary,
-                        height: 1.5,
-                      ),
-                    ),
-                  ).animate().fadeIn(delay: 300.ms),
-
-                  const SizedBox(height: 28),
-
-                  // Simulator / Hardware Mode Toggle Card
-                  GlassCard(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    child: Row(
-                      children: [
-                        Icon(
-                          _useSimulator ? Icons.science_rounded : Icons.bluetooth_rounded,
-                          color: _useSimulator ? AppColors.primary : AppColors.secondary,
-                          size: 24,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _useSimulator ? 'Chế độ Mô phỏng (Simulator)' : 'BLE Phần cứng (Hardware)',
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.textPrimary,
-                                ),
-                              ),
-                              Text(
-                                _useSimulator
-                                    ? 'Kiểm thử toàn diện mạng & RSSI mà không cần 2 máy thật'
-                                    : 'Sử dụng chip BLE vật lý của điện thoại',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Switch(
-                          value: _useSimulator,
-                          onChanged: (val) => setState(() => _useSimulator = val),
-                          activeColor: AppColors.primary,
-                        ),
-                      ],
-                    ),
-                  ).animate().fadeIn(delay: 400.ms),
-
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 32),
 
                   // Permissions Check Card
-                  if (!_hasPermission && !_useSimulator)
+                  if (!_hasPermission) ...[
                     GlassCard(
                       borderColor: AppColors.rssiWarning.withOpacity(0.5),
                       padding: const EdgeInsets.all(16),
@@ -215,8 +154,8 @@ class _HomeRoleSelectScreenState extends ConsumerState<HomeRoleSelectScreen> {
                         ],
                       ),
                     ),
-
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 20),
+                  ],
 
                   // Role 1: Student / Examinee
                   GlassCard(
@@ -224,7 +163,7 @@ class _HomeRoleSelectScreenState extends ConsumerState<HomeRoleSelectScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => DiscoveryRadarScreen(useSimulator: _useSimulator),
+                          builder: (_) => const DiscoveryRadarScreen(useSimulator: false),
                         ),
                       );
                     },
@@ -241,27 +180,13 @@ class _HomeRoleSelectScreenState extends ConsumerState<HomeRoleSelectScreen> {
                         ),
                         const SizedBox(width: 16),
                         const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Vào Thi (Thí Sinh)',
-                                style: TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.textPrimary,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                'Quét radar tìm phòng thi BLE, nhận đề thi mã hóa, giám sát vùng an toàn RSSI',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppColors.textSecondary,
-                                  height: 1.4,
-                                ),
-                              ),
-                            ],
+                          child: Text(
+                            'Vào Thi (Thí Sinh)',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
                           ),
                         ),
                         const Icon(Icons.arrow_forward_ios_rounded, color: AppColors.textMuted, size: 18),
@@ -269,7 +194,7 @@ class _HomeRoleSelectScreenState extends ConsumerState<HomeRoleSelectScreen> {
                     ),
                   ).animate().slideX(begin: -0.1, duration: 400.ms).fadeIn(),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 18),
 
                   // Role 2: Teacher / Proctor
                   GlassCard(
@@ -297,87 +222,22 @@ class _HomeRoleSelectScreenState extends ConsumerState<HomeRoleSelectScreen> {
                         ),
                         const SizedBox(width: 16),
                         const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Khu Vực Giảng Viên',
-                                style: TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.textPrimary,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                'Đăng nhập Cloud tải đề, mở GATT Server phát BLE và Sync kết quả sau ca thi',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppColors.textSecondary,
-                                  height: 1.4,
-                                ),
-                              ),
-                            ],
+                          child: Text(
+                            'Khu Vực Giảng Viên',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
                           ),
                         ),
                         const Icon(Icons.arrow_forward_ios_rounded, color: AppColors.textMuted, size: 18),
                       ],
                     ),
                   ).animate().slideX(begin: 0.1, duration: 400.ms).fadeIn(),
-
-                  const SizedBox(height: 32),
-
-                  // Technical Specifications Highlights
-                  const Center(
-                    child: Text(
-                      'BẢO MẬT & KIẾN TRÚC BLE',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textMuted,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    alignment: WrapAlignment.center,
-                    children: [
-                      _buildFeaturePill(Icons.lock_rounded, 'AES-256 + GZip'),
-                      _buildFeaturePill(Icons.radar_rounded, 'Geofence RSSI'),
-                      _buildFeaturePill(Icons.security_rounded, 'Kiosk Anti-Cheat'),
-                    ],
-                  ),
                 ],
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFeaturePill(IconData icon, String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceCard,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.glassBorder),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 14, color: AppColors.primary),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
           ),
         ],
       ),

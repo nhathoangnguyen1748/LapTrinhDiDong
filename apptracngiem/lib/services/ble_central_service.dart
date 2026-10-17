@@ -34,6 +34,7 @@ class BleCentralService {
   BluetoothDevice? _connectedDevice;
   BluetoothCharacteristic? _examDataChar;
   BluetoothCharacteristic? _submitResultChar;
+  BluetoothCharacteristic? _candidateControlChar;
   Timer? _rssiHeartbeatTimer;
 
   final ReassemblyBuffer _reassemblyBuffer = ReassemblyBuffer();
@@ -157,7 +158,11 @@ class BleCentralService {
       if (device == null) return false;
 
       _connectedDevice = device;
-      await device.connect(timeout: const Duration(seconds: 12));
+      if (!device.isConnected) {
+        await device.connect(autoConnect: false, timeout: const Duration(seconds: 15));
+      }
+
+      await Future.delayed(const Duration(milliseconds: 300));
 
       // Request MTU negotiation to 512 bytes
       try {
@@ -167,16 +172,21 @@ class BleCentralService {
         debugPrint('[BleCentral] MTU request error (normal on iOS): $e');
       }
 
+      await Future.delayed(const Duration(milliseconds: 200));
+
       // Discover GATT services
       final services = await device.discoverServices();
       for (final s in services) {
-        if (s.uuid.toString().toLowerCase() == BleConstants.serviceUuid.toLowerCase()) {
+        final sUuid = s.uuid.toString().toLowerCase();
+        if (sUuid.contains('fef0')) {
           for (final c in s.characteristics) {
             final cUuid = c.uuid.toString().toLowerCase();
-            if (cUuid == BleConstants.charExamDataUuid.toLowerCase()) {
+            if (cUuid.contains('fef1')) {
               _examDataChar = c;
-            } else if (cUuid == BleConstants.charSubmitResultUuid.toLowerCase()) {
+            } else if (cUuid.contains('fef2')) {
               _submitResultChar = c;
+            } else if (cUuid.contains('fef3')) {
+              _candidateControlChar = c;
             }
           }
         }
@@ -193,6 +203,15 @@ class BleCentralService {
             } catch (e) {
               debugPrint('[BleCentral] Error parsing chunk packet: $e');
             }
+          }
+        });
+      }
+
+      if (_candidateControlChar != null) {
+        await _candidateControlChar!.setNotifyValue(true);
+        _candidateControlChar!.onValueReceived.listen((value) {
+          if (value.isNotEmpty && value[0] == 0x01) {
+            _masterStartController.add(true);
           }
         });
       }
@@ -289,7 +308,22 @@ class BleCentralService {
       return true;
     }
 
-    // In hardware mode, candidates communicate through GATT char or advertisements
+    if (_candidateControlChar != null) {
+      try {
+        final payload = jsonEncode({
+          'type': 'join',
+          'studentId': studentId,
+          'studentName': studentName,
+          'classroom': classroom,
+          'roomPin': roomPin,
+          'totalQuestions': totalQuestions,
+        });
+        await _candidateControlChar!.write(utf8.encode(payload), withoutResponse: true);
+        return true;
+      } catch (e) {
+        debugPrint('[BleCentral] joinExamRoom error: $e');
+      }
+    }
     return true;
   }
 
@@ -301,6 +335,18 @@ class BleCentralService {
   }) {
     if (isMockMode) {
       MockBleService.instance.simulateCandidateProgress(studentId, answeredCount);
+      return;
+    }
+    if (_candidateControlChar != null) {
+      try {
+        final payload = jsonEncode({
+          'type': 'progress',
+          'studentId': studentId,
+          'answeredCount': answeredCount,
+          'battery': batteryLevel,
+        });
+        _candidateControlChar!.write(utf8.encode(payload), withoutResponse: true);
+      } catch (_) {}
     }
   }
 
@@ -312,6 +358,18 @@ class BleCentralService {
   }) {
     if (isMockMode) {
       MockBleService.instance.simulateCandidateViolation(studentId, alertMessage);
+      return;
+    }
+    if (_candidateControlChar != null) {
+      try {
+        final payload = jsonEncode({
+          'type': 'violation',
+          'studentId': studentId,
+          'violationCount': violationCount,
+          'message': alertMessage,
+        });
+        _candidateControlChar!.write(utf8.encode(payload), withoutResponse: true);
+      } catch (_) {}
     }
   }
 
