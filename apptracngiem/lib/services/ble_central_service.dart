@@ -65,6 +65,8 @@ class BleCentralService {
       ? MockBleService.instance.isConnected
       : (_connectedDevice != null && _connectedDevice!.isConnected);
 
+  BluetoothDevice? get connectedDevice => _connectedDevice;
+
   ReassemblyBuffer get reassemblyBuffer => _reassemblyBuffer;
 
   /// Start scanning for exam rooms broadcasting SERVICE_UUID
@@ -185,29 +187,43 @@ class BleCentralService {
       try {
         debugPrint('[BleCentral] Connecting to ${device.remoteId} (attempt $attempt/$maxAttempts)...');
 
-        // Disconnect first if active to ensure fresh clean connection
-        if (device.isConnected) {
+        // Luôn ngắt kết nối sạch trước để dọn dẹp handle GATT cũ trong native Android
+        try {
+          await device.disconnect();
+          await Future.delayed(const Duration(milliseconds: 250));
+        } catch (_) {}
+
+        // Nếu là lần thử lại từ lần 2, quét nhanh 1s để làm tươi cache Bluetooth của Android
+        if (attempt > 1) {
           try {
-            await device.disconnect();
-            await Future.delayed(const Duration(milliseconds: 300));
+            await FlutterBluePlus.stopScan();
+            await FlutterBluePlus.startScan(
+              withServices: [Guid(BleConstants.serviceUuid)],
+              timeout: const Duration(seconds: 1),
+            );
+            await FlutterBluePlus.isScanning.where((val) => val == false).first;
           } catch (_) {}
         }
 
-        await device.connect(autoConnect: false, timeout: const Duration(seconds: 8));
-        await Future.delayed(const Duration(milliseconds: 300));
+        await device.connect(autoConnect: false, timeout: const Duration(seconds: 6));
+        await Future.delayed(const Duration(milliseconds: 250));
 
-        // Request MTU negotiation to 512 bytes
+        // Yêu cầu nâng MTU lên 512 bytes
         try {
           await device.requestMtu(BleConstants.requestedMtu);
           debugPrint('[BleCentral] MTU requested: ${BleConstants.requestedMtu}');
         } catch (e) {
-          debugPrint('[BleCentral] MTU request error (normal on iOS): $e');
+          debugPrint('[BleCentral] MTU request error: $e');
         }
 
-        await Future.delayed(const Duration(milliseconds: 200));
+        await Future.delayed(const Duration(milliseconds: 250));
 
-        // Discover GATT services
+        // Khám phá GATT services
         final services = await device.discoverServices();
+        _examDataChar = null;
+        _submitResultChar = null;
+        _candidateControlChar = null;
+
         for (final s in services) {
           final sUuid = s.uuid.toString().toLowerCase();
           if (sUuid.contains('fef0')) {
@@ -224,49 +240,117 @@ class BleCentralService {
           }
         }
 
-        if (_examDataChar != null) {
-          // Subscribe to Notifications for Exam Chunks
-          await _examDataChar!.setNotifyValue(true);
-          _examDataChar!.onValueReceived.listen((value) {
-            if (value.isNotEmpty) {
-              try {
-                final packet = ChunkPacket.fromBytes(Uint8List.fromList(value));
-                _handleChunkReceived(packet);
-              } catch (e) {
-                debugPrint('[BleCentral] Error parsing chunk packet: $e');
-              }
-            }
-          });
+        if (_examDataChar == null || _candidateControlChar == null) {
+          throw Exception('Chưa tìm thấy đầy đủ đặc tính BLE của phòng thi');
         }
 
-        if (_candidateControlChar != null) {
-          await _candidateControlChar!.setNotifyValue(true);
-          _candidateControlChar!.onValueReceived.listen((value) {
-            if (value.isNotEmpty) {
-              if (value[0] == 0x01) {
-                _isMasterExamStarted = true;
-                _masterStartController.add(true);
-              } else if (value[0] == 0x02) {
-                _forceSubmitController.add(true);
-              } else if (value[0] == 0x03 && value.length > 1) {
-                _autoSubmitPolicyController.add(value[1] == 0x01);
-              }
+        // Đăng ký nhận thông báo phân mảnh đề thi
+        await _examDataChar!.setNotifyValue(true);
+        _examDataChar!.onValueReceived.listen((value) {
+          if (value.isNotEmpty) {
+            try {
+              final packet = ChunkPacket.fromBytes(Uint8List.fromList(value));
+              _handleChunkReceived(packet);
+            } catch (e) {
+              debugPrint('[BleCentral] Error parsing chunk packet: $e');
             }
-          });
-        }
+          }
+        });
 
-        // Start periodic RSSI heartbeat
+        // Đăng ký nhận lệnh từ Giám thị (Master Start, Force Submit, Policy)
+        await _candidateControlChar!.setNotifyValue(true);
+        _candidateControlChar!.onValueReceived.listen((value) {
+          if (value.isNotEmpty) {
+            if (value[0] == 0x01) {
+              _isMasterExamStarted = true;
+              _masterStartController.add(true);
+            } else if (value[0] == 0x02) {
+              _forceSubmitController.add(true);
+            } else if (value[0] == 0x03 && value.length > 1) {
+              _autoSubmitPolicyController.add(value[1] == 0x01);
+            }
+          }
+        });
+
+        // Khởi động RSSI heartbeat
         _startRssiHeartbeat();
 
         return true;
       } catch (e) {
         debugPrint('[BleCentral] Connect error attempt $attempt: $e');
+        try {
+          await device.disconnect();
+        } catch (_) {}
         if (attempt < maxAttempts) {
-          await Future.delayed(const Duration(milliseconds: 600));
+          await Future.delayed(const Duration(milliseconds: 500));
         }
       }
     }
     return false;
+  }
+
+  /// Tự động kết nối lại thiết bị Giám thị khi khôi phục phiên thi
+  Future<bool> reconnectToDevice({String? remoteId, bool isMock = false}) async {
+    if (isMock || isMockMode) {
+      isMockMode = true;
+      return true;
+    }
+
+    if (remoteId == null || remoteId.isEmpty) return false;
+
+    try {
+      final device = BluetoothDevice.fromId(remoteId);
+      _connectedDevice = device;
+
+      debugPrint('[BleCentral] Reconnecting to device $remoteId...');
+      try {
+        await device.disconnect();
+        await Future.delayed(const Duration(milliseconds: 250));
+      } catch (_) {}
+
+      await device.connect(autoConnect: false, timeout: const Duration(seconds: 5));
+      await Future.delayed(const Duration(milliseconds: 250));
+
+      final services = await device.discoverServices();
+      for (final s in services) {
+        final sUuid = s.uuid.toString().toLowerCase();
+        if (sUuid.contains('fef0')) {
+          for (final c in s.characteristics) {
+            final cUuid = c.uuid.toString().toLowerCase();
+            if (cUuid.contains('fef1')) {
+              _examDataChar = c;
+            } else if (cUuid.contains('fef2')) {
+              _submitResultChar = c;
+            } else if (cUuid.contains('fef3')) {
+              _candidateControlChar = c;
+            }
+          }
+        }
+      }
+
+      if (_candidateControlChar != null) {
+        await _candidateControlChar!.setNotifyValue(true);
+        _candidateControlChar!.onValueReceived.listen((value) {
+          if (value.isNotEmpty) {
+            if (value[0] == 0x01) {
+              _isMasterExamStarted = true;
+              _masterStartController.add(true);
+            } else if (value[0] == 0x02) {
+              _forceSubmitController.add(true);
+            } else if (value[0] == 0x03 && value.length > 1) {
+              _autoSubmitPolicyController.add(value[1] == 0x01);
+            }
+          }
+        });
+      }
+
+      _startRssiHeartbeat();
+      debugPrint('[BleCentral] Reconnected successfully to $remoteId');
+      return true;
+    } catch (e) {
+      debugPrint('[BleCentral] Reconnect failed: $e');
+      return false;
+    }
   }
 
   void _handleChunkReceived(ChunkPacket packet) {

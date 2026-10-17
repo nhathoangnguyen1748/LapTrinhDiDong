@@ -10,8 +10,10 @@ import '../common/glass_card.dart';
 import 'host/host_dashboard_screen.dart';
 import 'student/discovery_radar_screen.dart';
 import 'student/exam_taking_screen.dart';
+import 'student/exam_result_screen.dart';
 import 'teacher/teacher_login_screen.dart';
 import 'teacher/teacher_exam_list_screen.dart';
+import '../../services/ble_central_service.dart';
 
 class HomeRoleSelectScreen extends ConsumerStatefulWidget {
   const HomeRoleSelectScreen({super.key});
@@ -37,33 +39,88 @@ class _HomeRoleSelectScreenState extends ConsumerState<HomeRoleSelectScreen> {
       final now = DateTime.now();
       final remaining = studentSession.examEndTime.difference(now).inSeconds;
 
-      if (remaining > 0) {
-        // Sinh viên thoát app rồi vào lại:
-        // - Thời gian làm bài vẫn trừ như bình thường (dựa theo wall-clock examEndTime)
-        // - Ghi nhận thêm 1 lượt vi phạm do thoát app!
-        await ref.read(examSessionProvider.notifier).restoreSession(
-          studentSession,
-          additionalViolations: 1,
-        );
+      // Sinh viên mở lại app sau khi thoát:
+      // Tự động khôi phục kết nối BLE trong nền
+      if (studentSession.deviceRemoteId != null || studentSession.isMock) {
+        BleCentralService.instance.reconnectToDevice(
+          remoteId: studentSession.deviceRemoteId,
+          isMock: studentSession.isMock,
+        ).then((connected) {
+          debugPrint('[SessionRestore] Reconnect BLE result: $connected');
+          // Gửi cảnh báo vi phạm về máy Giám thị
+          BleCentralService.instance.sendCandidateViolation(
+            studentId: studentSession.studentId,
+            violationCount: studentSession.violationCount + 1,
+            alertMessage: 'Rời khỏi ứng dụng khi đang làm bài',
+          );
+        });
+      }
 
-        if (!mounted) return;
+      await ref.read(examSessionProvider.notifier).restoreSession(
+        studentSession,
+        additionalViolations: 1,
+      );
 
+      if (!mounted) return;
+
+      final sessionState = ref.read(examSessionProvider);
+
+      // Nếu bài thi đã nộp (do hết giờ HOẶC do vi phạm >= 3 và Giám thị bật tự nộp)
+      if (sessionState.isSubmitted && sessionState.submission != null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Row(
               children: [
-                Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
-                SizedBox(width: 8),
+                const Icon(Icons.gavel_rounded, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Đã khôi phục bài thi! Bạn bị tính 1 lần vi phạm do thoát ứng dụng.',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    remaining <= 0
+                        ? 'Đã hết thời gian làm bài! Bài thi đã tự động nộp.'
+                        : 'Bài thi đã tự động nộp do vi phạm quy chế (${sessionState.violationCount}/3 lần)!',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
             ),
             backgroundColor: AppColors.rssiCritical,
-            duration: Duration(seconds: 4),
+            duration: const Duration(seconds: 4),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ExamResultScreen(
+              submission: sessionState.submission!,
+              exam: studentSession.exam,
+            ),
+          ),
+        );
+        return;
+      }
+
+      // Ngược lại nếu chưa nộp (còn giờ và vi phạm < 3, HOẶC vi phạm >= 3 nhưng Giám thị TẮT tự nộp)
+      if (remaining > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    sessionState.violationCount >= 3
+                        ? 'Cảnh báo: Bạn đã vi phạm ${sessionState.violationCount} lần quy chế thi!'
+                        : 'Đã khôi phục bài thi! Bạn bị tính 1 lần vi phạm do thoát app (${sessionState.violationCount}/3 lần).',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: sessionState.violationCount >= 3 ? AppColors.rssiCritical : AppColors.rssiWarning,
+            duration: const Duration(seconds: 4),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -78,13 +135,6 @@ class _HomeRoleSelectScreenState extends ConsumerState<HomeRoleSelectScreen> {
           ),
         );
         return;
-      } else {
-        // Hết thời gian thi trong lúc thoát app -> Tự động nộp bài
-        await ref.read(examSessionProvider.notifier).restoreSession(
-          studentSession,
-          additionalViolations: 1,
-        );
-        await LocalExamStorage.clearActiveStudentSession();
       }
     }
 

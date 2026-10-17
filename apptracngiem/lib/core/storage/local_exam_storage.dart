@@ -245,6 +245,8 @@ class ActiveStudentSession {
   final DateTime examEndTime;
   final int violationCount;
   final bool autoSubmitOnViolations;
+  final String? deviceRemoteId;
+  final bool isMock;
 
   const ActiveStudentSession({
     required this.exam,
@@ -255,6 +257,8 @@ class ActiveStudentSession {
     required this.examEndTime,
     this.violationCount = 0,
     this.autoSubmitOnViolations = true,
+    this.deviceRemoteId,
+    this.isMock = false,
   });
 
   Map<String, dynamic> toJson() => {
@@ -266,6 +270,8 @@ class ActiveStudentSession {
     'examEndTime': examEndTime.toIso8601String(),
     'violationCount': violationCount,
     'autoSubmitOnViolations': autoSubmitOnViolations,
+    'deviceRemoteId': deviceRemoteId,
+    'isMock': isMock,
   };
 
   factory ActiveStudentSession.fromJson(Map<String, dynamic> json) {
@@ -279,6 +285,8 @@ class ActiveStudentSession {
           DateTime.now().add(const Duration(minutes: 30)),
       violationCount: json['violationCount'] as int? ?? 0,
       autoSubmitOnViolations: json['autoSubmitOnViolations'] as bool? ?? true,
+      deviceRemoteId: json['deviceRemoteId'] as String?,
+      isMock: json['isMock'] as bool? ?? false,
     );
   }
 }

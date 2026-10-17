@@ -142,11 +142,14 @@ class ExamSessionNotifier extends StateNotifier<ExamSessionState> {
         examEndTime: endTime,
         violationCount: 0,
         autoSubmitOnViolations: state.autoSubmitOnViolations,
+        deviceRemoteId: BleCentralService.instance.connectedDevice?.remoteId.str,
+        isMock: BleCentralService.instance.isMockMode,
       ),
     );
 
     // Start Kiosk anti-cheat protection
     await KioskManager.instance.startKiosk(
+      initialViolations: 0,
       onViolationDetected: (count, reason) {
         recordViolation(reason);
       },
@@ -197,17 +200,21 @@ class ExamSessionNotifier extends StateNotifier<ExamSessionState> {
         examEndTime: session.examEndTime,
         violationCount: totalViolations,
         autoSubmitOnViolations: session.autoSubmitOnViolations,
+        deviceRemoteId: session.deviceRemoteId,
+        isMock: session.isMock,
       ),
     );
 
-    // Nếu thời gian đã hết hoặc số vi phạm đạt ngưỡng và bật auto-submit -> Thu bài luôn
+    // Nếu thời gian đã hết HOẶC (số vi phạm >= 3 VÀ GIẢNG VIÊN BẬT auto-submit) -> Thu bài luôn
     if (remaining <= 0 || (session.autoSubmitOnViolations && totalViolations >= BleConstants.maxViolationsAllowed)) {
+      debugPrint('[ExamSession] Tự động nộp bài khi khôi phục (vi phạm: $totalViolations, hết giờ: ${remaining <= 0})...');
       await submitExam(isAutoSubmit: true);
       return;
     }
 
-    // Bắt đầu Kiosk và đếm ngược tiếp
+    // Bắt đầu Kiosk và đếm ngược tiếp với số lần vi phạm ban đầu là totalViolations
     await KioskManager.instance.startKiosk(
+      initialViolations: totalViolations,
       onViolationDetected: (count, reason) {
         recordViolation(reason);
       },
@@ -316,6 +323,8 @@ class ExamSessionNotifier extends StateNotifier<ExamSessionState> {
             examEndTime: active.examEndTime,
             violationCount: count,
             autoSubmitOnViolations: active.autoSubmitOnViolations,
+            deviceRemoteId: active.deviceRemoteId,
+            isMock: active.isMock,
           ),
         );
       }
@@ -368,8 +377,24 @@ class ExamSessionNotifier extends StateNotifier<ExamSessionState> {
     );
 
     try {
-      // Send over BLE
-      await BleCentralService.instance.submitExam(submission);
+      // Nếu BLE đang kết nối, gửi bài trực tiếp
+      if (BleCentralService.instance.isConnected) {
+        await BleCentralService.instance.submitExam(submission);
+      } else {
+        // Nếu BLE chưa kết nối (ví dụ app vừa mở lại sau khi bị đóng), thử kết nối lại nhanh để gửi bài
+        final active = await LocalExamStorage.getActiveStudentSession();
+        if (active != null && (active.deviceRemoteId != null || active.isMock)) {
+          try {
+            final reconnected = await BleCentralService.instance.reconnectToDevice(
+              remoteId: active.deviceRemoteId,
+              isMock: active.isMock,
+            ).timeout(const Duration(seconds: 4));
+            if (reconnected) {
+              await BleCentralService.instance.submitExam(submission);
+            }
+          } catch (_) {}
+        }
+      }
       await LocalExamStorage.saveSubmission(submission);
       await LocalExamStorage.clearSession();
       await LocalExamStorage.clearActiveStudentSession();

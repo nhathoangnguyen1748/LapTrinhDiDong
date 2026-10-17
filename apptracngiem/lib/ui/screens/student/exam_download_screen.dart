@@ -69,6 +69,8 @@ class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
 
     if (!success) {
       _retryCount++;
+      await BleCentralService.instance.disconnect();
+      if (!mounted) return;
       setState(() {
         _isConnecting = false;
         _statusMessage = 'Kết nối thất bại. Đang tự động kết nối lại (Lần $_retryCount)...';
@@ -120,18 +122,7 @@ class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
           totalQuestions: exam.questions.length,
         );
 
-        // Kiểm tra xem Giám thị đã bấm bắt đầu thi trước đó chưa!
-        if (BleCentralService.instance.isMasterExamStarted && !_isPinError) {
-          debugPrint('[ExamDownload] Giám thị đã phát lệnh trước đó -> Vào thi ngay lập tức!');
-          _onStartExam();
-        } else {
-          // Lắng nghe lệnh phát đề đồng loạt từ Giám thị (Master Start Sync)
-          _masterStartSubscription = BleCentralService.instance.masterStartStream.listen((started) {
-            if (started && mounted && !_isPinError) {
-              _onStartExam();
-            }
-          });
-        }
+        _setupMasterStartListenerAndCheck();
       }
     });
 
@@ -139,6 +130,24 @@ class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
     if (widget.room.isMock || BleCentralService.instance.isMockMode) {
       await Future.delayed(const Duration(milliseconds: 500));
       MockBleService.instance.streamExamChunks(ExamModel.sampleExam());
+    }
+  }
+
+  void _setupMasterStartListenerAndCheck() {
+    _masterStartSubscription?.cancel();
+
+    // 1. Kiểm tra xem Giám thị đã bấm bắt đầu thi trước đó chưa!
+    if (BleCentralService.instance.isMasterExamStarted && !_isPinError) {
+      debugPrint('[ExamDownload] Giám thị đã phát lệnh trước đó -> Vào thi ngay lập tức!');
+      _onStartExam();
+    } else {
+      // 2. Lắng nghe lệnh phát đề đồng loạt từ Giám thị (Master Start Sync)
+      _masterStartSubscription = BleCentralService.instance.masterStartStream.listen((started) {
+        if (started && mounted && !_isPinError) {
+          debugPrint('[ExamDownload] Nhận tín hiệu Master Start -> Bắt đầu làm bài!');
+          _onStartExam();
+        }
+      });
     }
   }
 
@@ -261,6 +270,7 @@ class _ExamDownloadScreenState extends ConsumerState<ExamDownloadScreen> {
                       roomPin: _enteredPin,
                       totalQuestions: _downloadedExam!.questions.length,
                     );
+                    _setupMasterStartListenerAndCheck();
                   }
                 },
                 child: const Text('XÁC NHẬN'),

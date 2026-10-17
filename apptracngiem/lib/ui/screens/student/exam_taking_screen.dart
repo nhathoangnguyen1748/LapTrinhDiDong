@@ -27,6 +27,26 @@ class ExamTakingScreen extends ConsumerStatefulWidget {
 
 class _ExamTakingScreenState extends ConsumerState<ExamTakingScreen> {
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final session = ref.read(examSessionProvider);
+      if (session.isSubmitted && session.submission != null) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ExamResultScreen(
+              submission: session.submission!,
+              exam: widget.exam,
+            ),
+          ),
+        );
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final examSession = ref.watch(examSessionProvider);
     final geofence = ref.watch(geofenceProvider);

@@ -33,11 +33,12 @@ class KioskManager with WidgetsBindingObserver {
 
   /// Kích hoạt chế độ Kiosk bảo vệ
   Future<void> startKiosk({
+    int initialViolations = 0,
     ViolationCallback? onViolationDetected,
     AutoSubmitCallback? onAutoSubmitTriggered,
   }) async {
     _isKioskActive = true;
-    _violationCount = 0;
+    _violationCount = initialViolations;
     _isInBackground = false;
     _hasAutoSubmitted = false;
     _violationTimestamps.clear();

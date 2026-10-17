@@ -38,6 +38,7 @@ class BleGattServerManager(
     private var charExamData: BluetoothGattCharacteristic? = null
     private var charCandidateControl: BluetoothGattCharacteristic? = null
     private var isExamStarted = false
+    private var currentAutoSubmitPolicy = true
 
     private val advertiseCallback = object : AdvertiseCallback() {
         override fun onStartSuccess(settingsInEffect: AdvertiseSettings?) {
@@ -56,6 +57,11 @@ class BleGattServerManager(
                 connectedDevices.add(device)
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 connectedDevices.remove(device)
+                try {
+                    gattServer?.cancelConnection(device)
+                } catch (e: Exception) {
+                    Log.e(TAG, "cancelConnection error: ${e.message}")
+                }
             }
         }
 
@@ -109,11 +115,19 @@ class BleGattServerManager(
             } else if (descriptor.uuid == CCCD_UUID && descriptor.characteristic?.uuid == CHAR_CANDIDATE_CONTROL_UUID) {
                 val isNotifyEnabled = value != null && value.isNotEmpty() && (value[0].toInt() and 0x01) != 0
                 Log.d(TAG, "Client ${device.address} enabled notify for candidate control: $isNotifyEnabled")
-                if (isNotifyEnabled && isExamStarted) {
+                if (isNotifyEnabled) {
                     charCandidateControl?.let { ctrlChar ->
+                        // 1. Gửi trạng thái chính sách nộp bài (0x03)
                         mainHandler.postDelayed({
-                            sendNotification(device, ctrlChar, byteArrayOf(0x01))
-                        }, 300)
+                            sendNotification(device, ctrlChar, byteArrayOf(0x03, if (currentAutoSubmitPolicy) 0x01 else 0x00))
+                        }, 200)
+
+                        // 2. Nếu đã bắt đầu thi, gửi lệnh bắt đầu (0x01)
+                        if (isExamStarted) {
+                            mainHandler.postDelayed({
+                                sendNotification(device, ctrlChar, byteArrayOf(0x01))
+                            }, 350)
+                        }
                     }
                 }
             }
@@ -144,11 +158,16 @@ class BleGattServerManager(
                     mainHandler.post {
                         methodChannel.invokeMethod("onCandidateControlReceived", data)
                     }
-                    if (isExamStarted) {
-                        charCandidateControl?.let { ctrlChar ->
+                    charCandidateControl?.let { ctrlChar ->
+                        // Phản hồi chính sách vi phạm hiện tại cho thí sinh
+                        mainHandler.postDelayed({
+                            sendNotification(device, ctrlChar, byteArrayOf(0x03, if (currentAutoSubmitPolicy) 0x01 else 0x00))
+                        }, 150)
+
+                        if (isExamStarted) {
                             mainHandler.postDelayed({
                                 sendNotification(device, ctrlChar, byteArrayOf(0x01))
-                            }, 200)
+                            }, 300)
                         }
                     }
                 }
@@ -166,8 +185,8 @@ class BleGattServerManager(
 
                 for ((index, chunk) in examChunks.withIndex()) {
                     sendNotification(device, targetChar, chunk)
-                    // 25ms delay prevents BLE queue saturation
-                    Thread.sleep(25)
+                    // 35ms delay prevents BLE queue saturation on all Android chipsets
+                    Thread.sleep(35)
                 }
                 Log.d(TAG, "Completed streaming ${examChunks.size} chunks to ${device.address}")
             } catch (e: Exception) {
@@ -312,6 +331,7 @@ class BleGattServerManager(
     }
 
     fun broadcastPolicy(autoSubmitOnViolations: Boolean) {
+        currentAutoSubmitPolicy = autoSubmitOnViolations
         val controlChar = charCandidateControl ?: return
         val policyPayload = byteArrayOf(0x03, if (autoSubmitOnViolations) 0x01 else 0x00)
         Log.d(TAG, "Broadcasting Policy autoSubmit=$autoSubmitOnViolations")
@@ -340,5 +360,6 @@ class BleGattServerManager(
         charCandidateControl = null
         examChunks = emptyList()
         isExamStarted = false
+        currentAutoSubmitPolicy = true
     }
 }

@@ -144,6 +144,8 @@ void main() {
         examEndTime: endTime,
         violationCount: 1,
         autoSubmitOnViolations: true,
+        deviceRemoteId: 'AA:BB:CC:DD:EE:FF',
+        isMock: false,
       );
 
       await LocalExamStorage.saveActiveStudentSession(session);
@@ -155,10 +157,40 @@ void main() {
       expect(restored.classroom, 'KTPM01');
       expect(restored.violationCount, 1);
       expect(restored.autoSubmitOnViolations, isTrue);
+      expect(restored.deviceRemoteId, 'AA:BB:CC:DD:EE:FF');
+      expect(restored.isMock, isFalse);
       expect(restored.exam.examId, sampleExam.examId);
 
       await LocalExamStorage.clearActiveStudentSession();
       expect(await LocalExamStorage.getActiveStudentSession(), isNull);
+    });
+
+    test('KioskManager nhận initialViolations và kích hoạt autoSubmit chính xác khi đạt ngưỡng', () async {
+      bool autoSubmitted = false;
+      int recordedViolations = 0;
+
+      await KioskManager.instance.startKiosk(
+        initialViolations: 2,
+        onViolationDetected: (count, reason) {
+          recordedViolations = count;
+        },
+        onAutoSubmitTriggered: () {
+          autoSubmitted = true;
+        },
+      );
+
+      expect(KioskManager.instance.violationCount, 2);
+
+      // Rời app lần thứ 3 (inactive -> paused -> resumed)
+      KioskManager.instance.didChangeAppLifecycleState(AppLifecycleState.inactive);
+      KioskManager.instance.didChangeAppLifecycleState(AppLifecycleState.paused);
+      KioskManager.instance.didChangeAppLifecycleState(AppLifecycleState.resumed);
+
+      expect(KioskManager.instance.violationCount, 3);
+      expect(recordedViolations, 3);
+      expect(autoSubmitted, isTrue);
+
+      await KioskManager.instance.stopKiosk();
     });
 
     test('ActiveHostSession lưu và khôi phục chính xác phiên tổ chức thi của giám thị', () async {
